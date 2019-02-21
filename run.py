@@ -5,15 +5,15 @@
 
 import numpy as np
 np.set_printoptions(suppress=True)
-seed = 808 # np.random.random_integers(0,5000)
-print(seed)
-np.random.seed(seed=seed)
+#seed = 808 # np.random.random_integers(0,5000)
+#print(seed)
+#np.random.seed(seed=seed)
 
 from shutil import copyfile
 import random
-py_seed = 967 #random.randint(0,1000)
-print("Python seed: {0}".format(py_seed))
-random.seed(py_seed)
+#py_seed = 967 #random.randint(0,1000)
+#print("Python seed: {0}".format(py_seed))
+#random.seed(py_seed)
 from importlib import reload
 
 
@@ -60,9 +60,9 @@ else:
 ######## LOAD MODEL IF NECESSARY ########
 
 # create an untrained neural network objects from the config file
-current_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (2,) + env.grid_shape, env.action_size,
+current_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size,
                           config.HIDDEN_CNN_LAYERS)
-best_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (2,) + env.grid_shape, env.action_size,
+best_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size,
                        config.HIDDEN_CNN_LAYERS)
 
 # If loading an existing neural netwrok, set the weights from that model
