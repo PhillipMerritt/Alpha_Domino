@@ -106,13 +106,23 @@ class Game:
         return board
 
     # once an action has been chosen this function is called
-    def step(self,
-             action):  # game state makes the chosen action and returns the next state, the value of the next state for the active player in that state, and whether or not the game is over
-        next_state, value, done = self.gameState.takeAction(
-            action)  # value is always 0 unless the game is over. Otherwise it is -1 since the last player made a winning move
-        self.gameState = next_state  # updates the gameState
-        self.currentPlayer = -self.currentPlayer  # swaps current player
-        info = None  # idk what this is
+    def step(self, action, logger):  # game state makes the chosen action and returns the next state, the value of the next state for the active player in that state, and whether or not the game is over
+        while 1:
+            next_state, value, done = self.gameState.takeAction(
+                action)  # value is always 0 unless the game is over. Otherwise it is -1 since the last player made a winning move
+            self.gameState = next_state  # updates the gameState
+            self.currentPlayer = -self.currentPlayer  # swaps current player
+            info = None  # idk what this is
+
+            self.gameState.render(logger)
+
+            if done or len(self.gameState.allowedActions) > 1:
+                break
+            elif len(self.gameState.allowedActions) == 1:
+                action = self.gameState.allowedActions[0]
+            else:
+                action = -1
+
         return ((next_state, value, done, info))
 
     def identities(self, state, actionValues):  # haven't looked into what this function is doing quite yet
@@ -137,6 +147,9 @@ class GameState():
         self.head_indices = {0: 0, 1: 2, 2: 5, 3: 9, 4: 14, 5: 20, 6: 27}  # head_indices is the opposite
         # these 2 dicts and the list allow for quick conversions
 
+        self.p1_val = 0  # scores from a block ending
+        self.p2_val = 0
+
         self.board = board
         self.playerTurn = playerTurn
         self.drawCount = 0  # tracks the # of times this player has drawn this turn. only used for logging
@@ -148,7 +161,8 @@ class GameState():
 
         self.isEndGame = self._checkForEndGame()
         self.value = self._getValue()  # the value is from the POV of the current player. So either 0 for the game continuing or -1 if the last player made a winning move
-        self.score = self._getScore()  # haven't messed with this much. There are definitely better ways to represent the score. I'm not exactly sure what this value is used for.
+        self.score = self._getScore()
+        self.passed = False
 
     def to_domino(self, index):  # returns the pip values of the domino at index
 
@@ -207,6 +221,7 @@ class GameState():
             if len(actions) > 0:  # if there are any available actions return them
                 return actions
             elif not self._draw():  # if no actions found draw a domino
+                self.passed = True
                 return []  # if drawing a domino fails return an empty list
 
     def _binary(self):  # just creates a copy of the board and returns it
@@ -234,11 +249,8 @@ class GameState():
 
         return id
 
-    def _checkForEndGame(
-            self):  # returns 1 if the last player played their last domino or if the current player has no possible plays otherwise returns 0
-        if np.count_nonzero(self.board[1]) == 0:
-            return 1
-        if len(self.allowedActions) == 0:
+    def _checkForEndGame(self):  # returns 1 if the last player played their last domino or if the current player has no possible plays otherwise returns 0
+        if np.count_nonzero(self.board[1]) == 0 or len(self.allowedActions) == 0:
             return 1
 
         return 0
@@ -248,6 +260,26 @@ class GameState():
         # i.e. if the previous player played a winning move, you lose
         if np.count_nonzero(self.board[1]) == 0:
             return (-1, -1, 1)
+
+        # both players have ran out of dominoes so their tiles are flipped and the pips are added up
+        # the player with the lowest total wins
+        if self.isEndGame:
+            hand = np.nonzero(self.board[0])[0]  # get arr of hand indices
+
+            for index in hand:
+                domino = self.to_domino(np.int(index))  # convert each index in the hand to a domino tuple
+                self.p1_val += domino[0] + domino[1]
+
+            hand = np.nonzero(self.board[1])[0]  # get arr of op hand indices
+
+            for index in hand:
+                domino = self.to_domino(np.int(index))  # convert each index in the hand to a domino tuple
+                self.p2_val += domino[0] + domino[1]
+
+            if self.p1_val < self.p2_val:
+                return (1, 1, -1)
+            elif self.p1_val > self.p2_val:
+                return (-1, -1, 1)
 
         return (0, 0, 0)
 
@@ -262,37 +294,6 @@ class GameState():
         return (count_a, count_b)"""
         tmp = self.value
         return (tmp[1], tmp[2])
-
-    # both players have ran out of dominoes so their tiles are flipped and the pips are added up
-    # the player with the lowest total wins
-    def get_block_score(self):
-        hand = np.nonzero(self.board[0])[0]  # get arr of hand indices
-
-        p1_val = 0
-
-        for index in hand:
-            domino = self.to_domino(np.int(index))  # convert each index in the hand to a domino tuple
-            p1_val += domino[0] + domino[1]
-
-        hand = np.nonzero(self.board[1])[0]  # get arr of op hand indices
-
-        p2_val = 0
-
-        for index in hand:
-            domino = self.to_domino(np.int(index))  # convert each index in the hand to a domino tuple
-            p2_val += domino[0] + domino[1]
-
-
-
-        if p1_val < p2_val:
-            self.value = (1, 1, -1)
-        elif p1_val > p2_val:
-            self.value = (-1, -1, 1)
-        else:
-            self.value = (0, 0, 0)
-
-        tmp = self.value
-        self.score = (tmp[1], tmp[2])
 
     # matches one of the pip values of the chosen action to the current head_domino and replaces the head_domino with another with the value of the opposite pip then returns the new board
     def _convert_head(self, action, newBoard):
@@ -331,10 +332,6 @@ class GameState():
         if newState.isEndGame:  # if the game is over in the new state store its value to value and update done to 1
             value = newState.value[0]
             done = 1
-        """elif len(self.allowedActions) == 0 and len(newState.allowedActions) == 0:
-            newState.get_block_score()
-            value = newState.value[0]
-            done = 1"""
 
         return (newState, value, done)
 
@@ -386,6 +383,8 @@ class GameState():
             head_domino = self._head_value(board_indices[0])
 
         logger.info("Head Domino Value: {0}".format(head_domino))
+
+        logger.info("Dominoes left in boneyard: {0}".format(np.count_nonzero(self.board[3])))
         # print("Head Domino Value: {0}".format(head_domino))
         doms.clear()
 
@@ -393,6 +392,10 @@ class GameState():
             doms.append(self.to_domino(i))
 
         logger.info("Available actions: {0}".format(doms))
+
+        if self.p1_val > 0 or self.p2_val >0:
+            logger.info("Player {0} pip total - {1}".format(self.playerTurn, self.p1_val))
+            logger.info("Player {0} pip total - {1}".format(-self.playerTurn, self.p2_val))
         # print("Dominoes left in boneyard: {0}".format(np.count_nonzero(self.board[3])))
 
         logger.info('--------------')

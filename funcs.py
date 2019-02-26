@@ -80,29 +80,35 @@ def playMatches(player1, player2, EPISODES, logger, turns_until_tau0, memory = N
 
         while done == 0:
             turn = turn + 1
-    
-            #### Run the MCTS algo and return an action
-            if turn < turns_until_tau0:
-                action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 1)
+
+            #### Run the MCTS algo and return an action unless there is 1 or less options
+            if len(state.allowedActions) < 2:
+                if len(state.allowedActions) == 0:
+                    action = -1
+                else:
+                    action = state.allowedActions[0]
             else:
-                action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
+                if turn < turns_until_tau0:                                 # this is where we will generate random hands
+                    action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 1)
+                else:
+                    action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
 
-            if memory != None:
-                ####Commit the move to memory
-                memory.commit_stmemory(env.identities, state, pi)
+                if memory != None:
+                    ####Commit the move to memory
+                    memory.commit_stmemory(env.identities, state, pi)
 
 
-            logger.info('action: %d', action)
-            for r in range(env.grid_shape[0]):
-                logger.info(['----' if x == 0 else '{0:.2f}'.format(np.round(x,2)) for x in pi[env.grid_shape[1]*r : (env.grid_shape[1]*r + env.grid_shape[1])]])
-            logger.info('MCTS perceived value for %s: %f', state.to_domino(action) ,np.round(MCTS_value,2))
-            logger.info('NN perceived value for %s: %f', state.to_domino(action) ,np.round(NN_value,2))
-            logger.info('====================')
+                logger.info('action: %d', action)
+                for r in range(env.grid_shape[0]):
+                    logger.info(['----' if x == 0 else '{0:.2f}'.format(np.round(x,2)) for x in pi[env.grid_shape[1]*r : (env.grid_shape[1]*r + env.grid_shape[1])]])
+                logger.info('MCTS perceived value for %s: %f', state.to_domino(action) ,np.round(MCTS_value,2))
+                logger.info('NN perceived value for %s: %f', state.to_domino(action) ,np.round(NN_value,2))
+                logger.info('====================')
 
             ### Do the action
-            state, value, done, _ = env.step(action) #the value of the newState from the POV of the new playerTurn i.e. -1 if the previous player played a winning move
+            state, value, done, _ = env.step(action, logger) #the value of the newState from the POV of the new playerTurn i.e. -1 if the previous player played a winning move
             
-            env.gameState.render(logger)
+            #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
 
             if done == 1: 
                 if memory != None:
