@@ -167,17 +167,17 @@ class Agent():
         if tau == 0:
             actions = np.argwhere(pi == max(pi))
 
-            #if len(actions) > 0:  # attempt at adding the ability to pass
-            action = random.choice(actions)[0]
-            #else:
-                #action = -1
+            if len(actions) > 0:  # attempt at adding the ability to pass
+                action = random.choice(actions)[0]
+            else:
+                action = -1
         else:
             action_idx = np.random.multinomial(1, pi)
 
-            #if len(action_idx) > 0:
-            action = np.where(action_idx == 1)[0][0]
-            #else:
-                #action = -1
+            if len(action_idx) > 0:
+                action = np.where(action_idx == 1)[0][0]
+            else:
+                action = -1
 
         value = values[action]
 
