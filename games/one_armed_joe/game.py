@@ -1,5 +1,7 @@
 import numpy as np
 import logging
+import globals
+from copy import deepcopy
 
 
 # Game generates GameStates and handles switching between player turns
@@ -17,11 +19,11 @@ class Game:
 
         self.currentPlayer = 1  # either 1 or -1
 
-        board = self._generate_board(self.currentPlayer)  # generate a new board w/ player 1 going first
+        hands, head, queue, public = self._generate_board(self.currentPlayer)  # generate a new board w/ player 2 going first
 
         # self.currentPlayer = -self.currentPlayer
 
-        self.gameState = GameState(board, self.currentPlayer)  # create a GameState
+        self.gameState = GameState(hands, head, queue, public, self.currentPlayer)  # create a GameState
         self.actionSpace = np.zeros(  # action space is a 1x28 array
             (28), dtype=np.int)
         self.grid_shape = (4, 28)  # grid shape is 4x28
@@ -31,81 +33,48 @@ class Game:
         self.action_size = len(self.actionSpace)  # size of the actionSpace
 
     def reset(self):  # sets player to 1 and generates a new board and gamestate
-        board = self._generate_board(1)
+        hands, head, queue, public = self._generate_board(1)
 
-        self.gameState = GameState(board, 1)
+        self.gameState = GameState(hands, head, queue, public, 1)
 
         self.currentPlayer = 1
         return self.gameState
 
     def _generate_board(self, turn):
-        board = np.zeros(  # 0 - player hand, 1 - opponent hand, 2 - board, 3-bonepile
-            (4, 28), dtype=np.int)  # the pip value of the head domino is represented as a double domino of that value
-        # ex. If the 6:3 domino is the head domino with the 3 as the side that can be played on
-        # it is represented as the 3:3 domino in the board list.
-
-        for i in range(28):  # sets all boneyard elements to true
-            board[3][i] = 1
-
-        board[3][
-            24] = 0  # everything from here to the return statement is generating a specific board state for debugging
-        # normally both players would take turns drawing a random domino from the bonepile
-        """for i in range(3):
-            choices = np.nonzero(board[3])[0]
-            choice = np.random.choice(choices)
-            board[0][choice] = 1
-            board[3][choice] = 0
-        for i in range(2):
-            choices = np.nonzero(board[3])[0]
-            choice = np.random.choice(choices)
-            board[1][choice] = 1
-            board[3][choice] = 0
-
-        board[2][27] = 1
-
-        return board"""
+        hands = [[],[]]
+        queue = globals.queue_reset()   # reset and shuffle the queue
 
         for i in range(3):
-            choices = np.nonzero(board[3])[0]
-            choice = np.random.choice(choices)
-            board[0][choice] = 1
-            board[3][choice] = 0
-
-            choices = np.nonzero(board[3])[0]
-            choice = np.random.choice(choices)
-            board[1][choice] = 1
-            board[3][choice] = 0
+            hands[0].append(queue.pop())  # pop 3 doms of the queue for each player's hand
+            hands[1].append(queue.pop())
 
         dub_found = False  # here we are checking to see if the first player has a double in hand
-        choices = np.nonzero(board[1])[0]  # creates a list of the non-zero indices from the 1st players hand
-        dubs = [0, 2, 5, 9, 14, 20, 27]  # list of all double indices (0:0, 1:1, 2:2, etc...)
 
-        for j in choices:
-            if j in dubs:  # if a double is found play that on the board and remove it from the players hand
-                board[2][j] = 1
-                board[1][j] = 0
+        for j in hands[1]:
+            if j in self.head_values:  # if a double is found play that on the board and remove it from the players hand
+                head = self.head_values[j]
+                hands[1].remove(j)
+                public = [j]
                 dub_found = True
                 break
 
         if not dub_found:  # if not choose a random domino from their hand and play that
-            choices = np.nonzero(board[1])[
-                0]  # this is a pretty bad solution for this that should be updated at some point
-            choice = np.random.choice(choices)
-            board[1][choice] = 0
+            choice = np.random.choice(hands[1])
+            hands[1].remove(choice)
+
+            public = [choice]
 
             dom = self.all_domino[
                 choice]  # converts the index of the randomly chosen domino to a tuple of its pip values
 
             choice = np.random.choice(dom)  # choose 1 of the two pip values randomly
 
-            head_index = self.head_indices[
-                choice]  # convert the chosen pip value into the index of the double domino of that value
+            head = choice  # put that domino on the board
 
-            board[2][head_index] = 1  # put that domino on the board
 
-        return board
+        return hands, head, queue, public
 
-    # once an action has been chosen this function is called
+    # once an action has been chosen this function is called and it keeps making actions until their is a choice to be made
     def step(self, action, logger):  # game state makes the chosen action and returns the next state, the value of the next state for the active player in that state, and whether or not the game is over
         while 1:
             next_state, value, done = self.gameState.takeAction(
@@ -114,13 +83,13 @@ class Game:
             self.currentPlayer = -self.currentPlayer  # swaps current player
             info = None  # idk what this is
 
-            self.gameState.render(logger)
+            self.gameState.render(logger)   # I moved rendering to here so that the automated turns would still be logged
 
-            if done or len(self.gameState.allowedActions) > 1:
+            if done or len(self.gameState.allowedActions) > 1:  # if the game is over or the current player has a choice break the loop
                 break
-            elif len(self.gameState.allowedActions) == 1:
+            elif len(self.gameState.allowedActions) == 1:   # else takeAction() with the one action available
                 action = self.gameState.allowedActions[0]
-            else:
+            else:                                           # or if no actions are available pass turn by taking action -1
                 action = -1
 
         return ((next_state, value, done, info))
@@ -128,16 +97,19 @@ class Game:
     def identities(self, state, actionValues):  # haven't looked into what this function is doing quite yet
         identities = [(state, actionValues)]
 
-        currentBoard = state.board
+        currentHands = state.hands
+        currentQueue = state.queue
+        currentHead = state.head
+        currentPublic = state.public
         currentAV = actionValues
 
-        identities.append((GameState(currentBoard, state.playerTurn), currentAV))
+        identities.append((GameState(currentHands,  currentHead, currentQueue, currentPublic, state.playerTurn), currentAV))
 
         return identities
 
 
 class GameState():
-    def __init__(self, board, playerTurn):
+    def __init__(self, hands, head, queue, public, playerTurn):
         # all_domino is a list of tuples containing the pip value for each domino
         self.all_domino = [(0, 0), (0, 1), (1, 1), (0, 2), (1, 2), (2, 2), (0, 3), (1, 3), (2, 3), (3, 3), (0, 4),
                            (1, 4), (2, 4), (3, 4), (4, 4), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5), (5, 5), (0, 6),
@@ -150,7 +122,11 @@ class GameState():
         self.p1_val = 0  # scores from a block ending
         self.p2_val = 0
 
-        self.board = board
+        self.hands = hands
+        self.head = head
+        self.queue = queue
+        self.public = public
+
         self.playerTurn = playerTurn
         self.drawCount = 0  # tracks the # of times this player has drawn this turn. only used for logging
         self.binary = self._binary()  # this is a binary representation of the board state which is basically just the board atm
@@ -164,36 +140,12 @@ class GameState():
         self.score = self._getScore()
         self.passed = False
 
-    def to_domino(self, index):  # returns the pip values of the domino at index
+    def _draw(self):  # draws a random domino then updates binary and id. If there are no more dominos to draw return false
 
-        return self.all_domino[int(index)]
-
-        # there is probably too much redundancy in the following two functions, but it hasn't seemed important enough to fix yet
-
-    def _get_head_value(self):  # gets the index from board[2] and then returns its pip value
-        index = np.nonzero(self.board[2])[0][0]
-
-        return self.head_values[index]
-
-    def _head_value(self, index):  # returns the pip value of the double at this index
-
-        return self.head_values[index]
-
-    def head_index(self, value):  # returns the index of the double domino of the value
-
-        return self.head_indices[value]
-
-    def _draw(
-            self):  # draws a random domino then updates binary and id. If there are no more dominos to draw return false
-        bones = np.nonzero(self.board[3])[0]  # array of dominoes in bonepile
-
-        if len(bones) > 0:  # if there are dominoes to draw
+        if len(self.queue) > 0:  # if there are dominoes to draw
             self.drawCount += 1
 
-            draw = np.random.choice(bones)  # randomly choose one
-
-            self.board[0][draw] = 1  # add to hand
-            self.board[3][draw] = 0  # remove from bonepile
+            self.hands[0].append(self.queue.pop())  # randomly pop one from the boneyard and place it in the players hand
 
             self.binary = self._binary()
             self.id = self._convertStateToId()
@@ -203,19 +155,16 @@ class GameState():
         return False
 
     def _allowedActions(self):
-        head_domino = self._get_head_value()  # get the pip value of head dom
 
-        if np.count_nonzero(self.board[0]) == 0:  # this shouldn't happen but return no actions if hand is empty
+        if np.count_nonzero(self.hands[0]) == 0:  # this shouldn't happen but return no actions if hand is empty
             return []
 
         while 1:  # checks for actions. If none found draw a domino and try again
-            hand = np.nonzero(self.board[0])[0]  # get arr of hand indices
-
             actions = []
 
-            for index in hand:
-                domino = self.to_domino(np.int(index))  # convert each index in the hand to a domino tuple
-                if head_domino == domino[0] or head_domino == domino[1]:  # if the head pip value is in the dom
+            for index in self.hands[0]:
+                domino = self.all_domino[np.int(index)]  # convert each index in the hand to a domino tuple
+                if self.head == domino[0] or self.head == domino[1]:  # if the head pip value is in the dom
                     actions.append(int(index))  # append that index to actions
 
             if len(actions) > 0:  # if there are any available actions return them
@@ -224,33 +173,62 @@ class GameState():
                 self.passed = True
                 return []  # if drawing a domino fails return an empty list
 
-    def _binary(self):  # just creates a copy of the board and returns it
+    # creates a list of hidden information by adding the opponent's hand back into the queue
+    # then generate a cloned gameState with the opponents hand generated from the shuffled
+    # unknown list
+    def CloneAndRandomize(self):
+        unknown = deepcopy(self.queue)  # create a deep copy of the queue
+
+        for dom in self.hands[1]: # put all of the opponent's dominoes in with the rest of the unknown dominoes
+            unknown.append(dom)
+
+        new_hands = [[],[]]
+
+        for dom in self.hands[0]:   # copy over the current players hand
+            new_hands[0].append(dom)
+
+        np.random.shuffle(unknown)
+
+        for i in range(len(self.hands[1])):
+            new_hands[1].append(unknown.pop())
+
+        return GameState(new_hands, self.head, unknown, self.public, self.playerTurn)
+
+
+
+
+    def _binary(self):  # converts the state to a 4x28 binary representation
 
         position = np.zeros((4, 28), dtype=np.int)
 
-        position[0][self.board[0] == 1] = 1
-        position[1][self.board[1] == 1] = 1
-        position[2][self.board[2] == 1] = 1
-        position[3][self.board[3] == 1] = 1
+        for dom in self.hands[0]:
+            position[0][dom] = 1
+        for dom in self.hands[1]:
+            position[1][dom] = 1
+
+        position[2][self.head_indices[self.head]] = 1
+
+        for dom in self.queue:
+            position[3][dom] = 1
 
         return (position)
 
     def _convertStateToId(
             self):  # appends a list of the nonzero indices from each of the board lists one after the other
         if self.playerTurn == 1:
-            position = np.append(self.board[0], self.board[1])
+            position = np.append(self.hands[0], self.hands[1])
         else:
-            position = np.append(self.board[1], self.board[0])
+            position = np.append(self.hands[1], self.hands[0])
 
-        position = np.append(position, self.board[2])
-        position = np.append(position, self.board[3])
+        position = np.append(position, self.queue)
+        #position = np.append(position, self.board[3])
 
         id = ''.join(map(str, position))
 
         return id
 
     def _checkForEndGame(self):  # returns 1 if the last player played their last domino or if the current player has no possible plays otherwise returns 0
-        if np.count_nonzero(self.board[1]) == 0 or len(self.allowedActions) == 0:
+        if np.count_nonzero(self.hands[1]) == 0 or len(self.allowedActions) == 0:
             return 1
 
         return 0
@@ -258,22 +236,18 @@ class GameState():
     def _getValue(self):
         # This is the value of the state for the current player
         # i.e. if the previous player played a winning move, you lose
-        if np.count_nonzero(self.board[1]) == 0:
+        if np.count_nonzero(self.hands[1]) == 0:
             return (-1, -1, 1)
 
         # both players have ran out of dominoes so their tiles are flipped and the pips are added up
         # the player with the lowest total wins
         if self.isEndGame:
-            hand = np.nonzero(self.board[0])[0]  # get arr of hand indices
-
-            for index in hand:
-                domino = self.to_domino(np.int(index))  # convert each index in the hand to a domino tuple
+            for index in self.hands[0]:
+                domino = self.all_domino[np.int(index)]  # convert each index in the hand to a domino tuple
                 self.p1_val += domino[0] + domino[1]
 
-            hand = np.nonzero(self.board[1])[0]  # get arr of op hand indices
-
-            for index in hand:
-                domino = self.to_domino(np.int(index))  # convert each index in the hand to a domino tuple
+            for index in self.hands[1]:
+                domino = self.all_domino[np.int(index)]  # convert each index in the hand to a domino tuple
                 self.p2_val += domino[0] + domino[1]
 
             if self.p1_val < self.p2_val:
@@ -283,48 +257,41 @@ class GameState():
 
         return (0, 0, 0)
 
-    def _getScore(
-            self):
-        """count_a = np.count_nonzero(self.board[0])
-        count_a = 27 - count_a
-
-        count_b = np.count_nonzero(self.board[1])
-        count_b = 27 - count_b
-
-        return (count_a, count_b)"""
+    def _getScore(self):
         tmp = self.value
         return (tmp[1], tmp[2])
 
     # matches one of the pip values of the chosen action to the current head_domino and replaces the head_domino with another with the value of the opposite pip then returns the new board
-    def _convert_head(self, action, newBoard):
-        played_domino = self.to_domino(action)  # get pip tuple of the chosen action
+    def _convert_head(self, action):
+        played_domino = self.all_domino[action]  # get pip tuple of the chosen action
 
-        head_domino = self._get_head_value()  # get the pip value of the current head domino
-
-        if played_domino[0] == head_domino:  # pip 1 of played domino matches head so pip 2 will be new head
-            newBoard[2][self.head_index(played_domino[1])] = 1
+        if played_domino[0] == self.head:  # pip 1 of played domino matches head so pip 2 will be new head
+            head = played_domino[1]
         else:  # pip 2 of played domino matches head so pip 1 will be new head
-            newBoard[2][self.head_index(played_domino[0])] = 1
+            head = played_domino[0]
 
-        newBoard[1][action] = 0  # remove played domino from player's hand
-
-        return newBoard
+        return head
 
     # creates a copy of the current board with the players hands swapped, makes the chosen action, creates a new gameState
     # then returns the new gameState as well as it's value and an indication of the game being over or not
     def takeAction(self, action):
-        newBoard = np.zeros(  # 0 - next player's hand, 1 - current player's hand, 2 - board, 3-bonepile
-            (4, 28), dtype=np.int)
-        newBoard[0][self.board[1] == 1] = 1  # hands are swapped for next game state
-        newBoard[1][self.board[0] == 1] = 1
-        newBoard[3][self.board[3] == 1] = 1
+        new_hands = [[],[]]
+
+        for dom in self.hands[1]:   # copy the opponents hand the current players hand for the new gamestate
+            new_hands[0].append(dom)
+
+        for dom in self.hands[0]:   # copy the current players hand to the opponents hand (except for the dom that just got played)
+            if dom != action:
+                new_hands[1].append(dom)
+
+        self.public.append(action)
 
         if action != -1:
-            newBoard = self._convert_head(action, newBoard)  # plays action to the board
+            head = self._convert_head(action)  # plays action to the board
         else:
-            newBoard[2][self.board[2] == 1] = 1
+            head = self.head
 
-        newState = GameState(newBoard, -self.playerTurn)  # create new state
+        newState = GameState(new_hands, head, self.queue, self.public, -self.playerTurn)  # create new state
 
         value = 0
         done = 0
@@ -351,9 +318,8 @@ class GameState():
 
         doms = []
 
-        hand_indices = np.nonzero(self.board[turn])[0]
-        for i in hand_indices:
-            doms.append(self.to_domino(np.int(i)))
+        for i in self.hands[turn]:
+            doms.append(self.all_domino[np.int(i)])
 
         if len(doms) > 0:
             logger.info("Player 1 hand: {0}".format(doms))  # p1 hand
@@ -364,9 +330,8 @@ class GameState():
 
         doms.clear()
 
-        hand_indices = np.nonzero(self.board[o_turn])[0]
-        for i in hand_indices:
-            doms.append(self.to_domino(np.int(i)))
+        for i in self.hands[o_turn]:
+            doms.append(self.all_domino[np.int(i)])
 
         if len(doms) > 0:
             logger.info("Player 2 hand: {0}".format(doms))  # p1 hand
@@ -375,21 +340,14 @@ class GameState():
             logger.info("Player 2 hand: Empty")
             # print("Player 2 hand: Empty")
 
-        board_indices = np.nonzero(self.board[2])[0]
+        logger.info("Head Domino Value: {0}".format(self.head))
 
-        if len(board_indices) == 0:
-            head_domino = -1
-        else:
-            head_domino = self._head_value(board_indices[0])
-
-        logger.info("Head Domino Value: {0}".format(head_domino))
-
-        logger.info("Dominoes left in boneyard: {0}".format(np.count_nonzero(self.board[3])))
+        logger.info("Dominoes left in boneyard: {0}".format(np.count_nonzero(self.queue)))
         # print("Head Domino Value: {0}".format(head_domino))
         doms.clear()
 
         for i in self.allowedActions:
-            doms.append(self.to_domino(i))
+            doms.append(self.all_domino[i])
 
         logger.info("Available actions: {0}".format(doms))
 

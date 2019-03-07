@@ -165,7 +165,7 @@ class Agent():
 
     def chooseAction(self, pi, values, tau):
         if tau == 0:
-            actions = np.argwhere(pi == max(pi))
+            actions = np.argwhere(pi == max(pi))    # same as np.transpose(np.nonzero(a))
 
             if len(actions) > 0:  # attempt at adding the ability to pass
                 action = random.choice(actions)[0]

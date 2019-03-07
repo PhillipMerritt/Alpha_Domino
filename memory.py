@@ -12,7 +12,9 @@ class Memory:
 	def commit_stmemory(self, identities, state, actionValues):
 		for r in identities(state, actionValues):
 			self.stmemory.append({
-				'board': r[0].board
+				'hands': r[0].hands
+				, 'head value': r[0].head
+				, 'public': r[0].public
 				, 'state': r[0]
 				, 'id': r[0].id
 				, 'AV': r[1]
