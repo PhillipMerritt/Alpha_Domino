@@ -69,6 +69,7 @@ class Agent():
         self.mcts.backFill(leaf, value, breadcrumbs)
 
     def act(self, state, tau):
+        state = state.CloneAndRandomize()
 
         if self.mcts == None or state.id not in self.mcts.tree:
             self.buildMCTS(state)
@@ -81,6 +82,9 @@ class Agent():
             lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
             lg.logger_mcts.info('***************************')
             self.simulate()
+            if sim < self.MCTSsimulations - 1:
+                state = state.CloneAndRandomize()
+                self.Determinize(state)
 
         #### get action values
         pi, values = self.getAV(1)
@@ -227,3 +231,6 @@ class Agent():
     def changeRootMCTS(self, state):
         lg.logger_mcts.info('****** CHANGING ROOT OF MCTS TREE TO %s FOR AGENT %s ******', state.id, self.name)
         self.mcts.root = self.mcts.tree[state.id]
+
+    def Determinize(self, state):
+        self.mcts.root.state = state
