@@ -287,7 +287,7 @@ class GameState():
             if dom != action:
                 new_hands[1].append(dom)
 
-        self.public.append(action)
+        public = deepcopy(self.public).append(action)
 
         if action != -1:
             head = self._convert_head(action)  # plays action to the board
@@ -305,9 +305,11 @@ class GameState():
 
         return (newState, value, done)
 
-    def render(self,
-               logger):  # this logs each gamestate to a logfile in the run folder. The commented sections will print the game states to the terminal if you uncomment them
-        logger.info("Current Turn: {0}".format(self.playerTurn))
+    def render(self, logger):  # this logs each gamestate to a logfile in the run folder. The commented sections will print the game states to the terminal if you uncomment them
+        if self.playerTurn == 1:
+            logger.info("Current Turn: {0}".format(1))
+        else:
+            logger.info("Current Turn: {0}".format(2))
         # print("Current Turn: {0}".format(self.playerTurn))
         logger.info("# of draws this turn: {0}".format(self.drawCount))
         # print("# of draws this turn: {0}".format(self.drawCount))
