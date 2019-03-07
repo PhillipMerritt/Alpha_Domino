@@ -212,18 +212,21 @@ class GameState():
             position[3][dom] = 1
 
         return (position)
+    # Creates a string id for the state that looks like: "sorted current player's hand | size of opponent's hand | head value | sorted public dominoes"
+    # e.x. "2923|4|2|01512161927"
+    # the two lists are getting sorted so that if the same game state is reached from different starting points the state will be represented the same
+    def _convertStateToId(self):
+        hand_copy = sorted(deepcopy(self.hands[0]))  # create a sorted copy of the current player's hand
 
-    def _convertStateToId(
-            self):  # appends a list of the nonzero indices from each of the board lists one after the other
-        if self.playerTurn == 1:
-            position = np.append(self.hands[0], self.hands[1])
-        else:
-            position = np.append(self.hands[1], self.hands[0])
+        id = ''.join(map(str, hand_copy))   # create a string version of the hand
 
-        position = np.append(position, self.queue)
-        #position = np.append(position, self.board[3])
+        id += '|' + str(len(self.hands[1])) # add the delimiter and the size of the opponent's hand
 
-        id = ''.join(map(str, position))
+        id += '|' + str(self.head)  # add the delimiter and the head value
+
+        public_copy = sorted(deepcopy(self.public)) # create a sorted copy of the list of public dominoes
+
+        id += '|' + ''.join(map(str, public_copy))  # add the delimiter and the public dominoes in string form
 
         return id
 
