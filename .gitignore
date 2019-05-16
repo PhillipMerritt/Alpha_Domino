@@ -107,4 +107,10 @@ ipynb/
 run_archive/
 code_archive/
 games/archive/
+run/logs/
+run/memory/
+run/models/
+.idea/
+.vs/
+__pycache__/
 *.pyc

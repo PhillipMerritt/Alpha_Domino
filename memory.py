@@ -13,12 +13,13 @@ class Memory:
 		for r in identities(state, actionValues):
 			self.stmemory.append({
 				'hands': r[0].hands
-				, 'head value': r[0].head
-				, 'public': r[0].public
+				, 'high bid': r[0].high_bid
+				, 'played dominoes': r[0].played_dominoes
 				, 'state': r[0]
 				, 'id': r[0].id
 				, 'AV': r[1]
 				, 'playerTurn': r[0].playerTurn
+				, 'Decision Type': r[0].decision_type
 				})
 
 	def commit_ltmemory(self):

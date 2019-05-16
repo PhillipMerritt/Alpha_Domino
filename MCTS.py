@@ -1,6 +1,7 @@
 import numpy as np
 import logging
 import config
+from config import PLAYER_COUNT, TEAM_SIZE
 
 from utils import setup_logger
 import loggers as lg
@@ -57,7 +58,11 @@ class MCTS():
 		done = 0
 		value = 0
 
+		depth = 0
+		maximum_depth = 4
+
 		while not currentNode.isLeaf():
+			depth += 1
 
 			lg.logger_mcts.info('PLAYER TURN...%d', currentNode.state.playerTurn)
 		
@@ -93,9 +98,14 @@ class MCTS():
 
 			lg.logger_mcts.info('action with highest Q + U...%d', simulationAction)
 
-			newState, value, done = currentNode.state.takeAction(simulationAction) #the value of the newState from the POV of the new playerTurn
+			newState, value_tuple, done = currentNode.state.takeAction(simulationAction) #the value of the newState from the POV of the new playerTurn
+			value = value_tuple[newState.playerTurn % TEAM_SIZE]
+
 			currentNode = simulationEdge.outNode
 			breadcrumbs.append(simulationEdge)
+
+			if depth == maximum_depth:
+				break
 
 		lg.logger_mcts.info('DONE...%d', done)
 
@@ -110,7 +120,7 @@ class MCTS():
 
 		for edge in breadcrumbs:
 			playerTurn = edge.playerTurn
-			if playerTurn == currentPlayer:
+			if playerTurn == currentPlayer or playerTurn == (currentPlayer + 2) % 4:	# added the or to set the values to positive for currentPlayer's partner
 				direction = 1
 			else:
 				direction = -1
