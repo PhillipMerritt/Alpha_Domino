@@ -8,6 +8,7 @@ from game import GameState
 from loss import softmax_cross_entropy_with_logits
 
 import config
+from config import DECISION_TYPES
 import loggers as lg
 import time
 
@@ -23,9 +24,10 @@ class User():
         self.action_size = action_size
 
     def act(self, state, tau):
-        action = input('Enter your chosen action: ')
+        state.user_print()
+        action = int(input('Enter your chosen action: '))
         pi = np.zeros(self.action_size)
-        pi[action] = 1
+        #pi[action] = 1
         value = None
         NN_value = None
         return (action, pi, value, NN_value)
@@ -42,6 +44,7 @@ class Agent():
 
         self.MCTSsimulations = mcts_simulations
         self.model = model
+        self.decision_types = len(model)
 
         self.mcts = None
 
@@ -70,6 +73,7 @@ class Agent():
 
     def act(self, state, tau):
         state = state.CloneAndRandomize()
+        d_t = state.decision_type   # store which decision type this will be
 
         if self.mcts == None or state.id not in self.mcts.tree:
             self.buildMCTS(state)
@@ -83,18 +87,18 @@ class Agent():
             lg.logger_mcts.info('***************************')
             self.simulate()
             if sim < self.MCTSsimulations - 1:
-                state = state.CloneAndRandomize()
-                self.Determinize(state)
+                state = state.CloneAndRandomize() # determinize
+                self.mcts.root.state = state
 
         #### get action values
-        pi, values = self.getAV(1)
+        pi, values = self.getAV(1, d_t)
 
         ####pick the action
         action, value = self.chooseAction(pi, values, tau)
 
         nextState, _, _ = state.takeAction(action)
 
-        NN_value = -self.get_preds(nextState)[0]
+        NN_value = -self.get_preds(nextState,d_t)[0]
 
         lg.logger_mcts.info('ACTION VALUES...%s', pi)
         lg.logger_mcts.info('CHOSEN ACTION...%d', action)
@@ -103,11 +107,12 @@ class Agent():
 
         return (action, pi, value, NN_value)
 
-    def get_preds(self, state):
+    def get_preds(self, state, decision_type):
+        decision_type = state.decision_type
         # predict the leaf
-        inputToModel = np.array([self.model.convertToModelInput(state)])
+        inputToModel = np.array([self.model[decision_type].convertToModelInput(state)])
 
-        preds = self.model.predict(inputToModel)
+        preds = self.model[decision_type].predict(inputToModel)
         value_array = preds[0]
         logits_array = preds[1]
         value = value_array[0]
@@ -132,7 +137,7 @@ class Agent():
 
         if done == 0:
 
-            value, probs, allowedActions = self.get_preds(leaf.state)
+            value, probs, allowedActions = self.get_preds(leaf.state, leaf.state.decision_type)
             lg.logger_mcts.info('PREDICTED VALUE FOR %d: %f', leaf.state.playerTurn, value)
 
             probs = probs[allowedActions]
@@ -155,49 +160,43 @@ class Agent():
 
         return ((value, breadcrumbs))
 
-    def getAV(self, tau):
+    def getAV(self, tau, decision_type):
         edges = self.mcts.root.edges
-        pi = np.zeros(self.action_size, dtype=np.integer)
-        values = np.zeros(self.action_size, dtype=np.float32)
+        pi = np.zeros(self.action_size[decision_type], dtype=np.integer)
+        values = np.zeros(self.action_size[decision_type], dtype=np.float32)
 
         for action, edge in edges:
             pi[action] = pow(edge.stats['N'], 1 / tau)
             values[action] = edge.stats['Q']
 
-        pi = pi / (np.sum(pi) * 1.0)
+        pi = pi / (np.sum(pi) * 1.0)    # divide every value in pi by the sum of all values in pi
         return pi, values
 
     def chooseAction(self, pi, values, tau):
         if tau == 0:
             actions = np.argwhere(pi == max(pi))    # same as np.transpose(np.nonzero(a))
 
-            if len(actions) > 0:  # attempt at adding the ability to pass
-                action = random.choice(actions)[0]
-            else:
-                action = -1
+            action = random.choice(actions)[0]
         else:
             action_idx = np.random.multinomial(1, pi)
 
-            if len(action_idx) > 0:
-                action = np.where(action_idx == 1)[0][0]
-            else:
-                action = -1
+            action = np.where(action_idx == 1)[0][0]
 
         value = values[action]
 
         return action, value
 
-    def replay(self, ltmemory):
+    def replay(self, ltmemory,d_t):
         lg.logger_mcts.info('******RETRAINING MODEL******')
 
         for i in range(config.TRAINING_LOOPS):
             minibatch = random.sample(ltmemory, min(config.BATCH_SIZE, len(ltmemory)))
 
-            training_states = np.array([self.model.convertToModelInput(row['state']) for row in minibatch])
+            training_states = np.array([self.model[d_t].convertToModelInput(row['state']) for row in minibatch])
             training_targets = {'value_head': np.array([row['value'] for row in minibatch])
                 , 'policy_head': np.array([row['AV'] for row in minibatch])}
 
-            fit = self.model.fit(training_states, training_targets, epochs=config.EPOCHS, verbose=1, validation_split=0,
+            fit = self.model[d_t].fit(training_states, training_targets, epochs=config.EPOCHS, verbose=1, validation_split=0,
                                  batch_size=32)
             lg.logger_mcts.info('NEW LOSS %s', fit.history)
 
@@ -217,7 +216,7 @@ class Agent():
         time.sleep(1.0)
 
         print('\n')
-        self.model.printWeightAverages()
+        self.model[d_t].printWeightAverages()
 
     def predict(self, inputToModel):
         preds = self.model.predict(inputToModel)
@@ -231,6 +230,3 @@ class Agent():
     def changeRootMCTS(self, state):
         lg.logger_mcts.info('****** CHANGING ROOT OF MCTS TREE TO %s FOR AGENT %s ******', state.id, self.name)
         self.mcts.root = self.mcts.tree[state.id]
-
-    def Determinize(self, state):
-        self.mcts.root.state = state
