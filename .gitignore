@@ -101,15 +101,18 @@
  -.mypy_cache/
 
 
+run/logs/*
+!run/logs/.gitkeep
+run/memory/*
+!run/memory/.gitkeep
+run/models/*
+!run/models/.gitkeep
 analysis/
 archive/
 ipynb/
 run_archive/
 code_archive/
 games/archive/
-run/logs/
-run/memory/
-run/models/
 .idea/
 .vs/
 __pycache__/
