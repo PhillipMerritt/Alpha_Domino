@@ -4,9 +4,9 @@
 #%autoreload 2
 import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session
-config = tf.ConfigProto()
+"""config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-set_session(tf.Session(config=config))
+set_session(tf.Session(config=config))"""
 
 from settings import run_folder
 import os
@@ -14,7 +14,7 @@ import os
 play_vs_self = False    # set this to true to take control of all 4 players
 
 ############ Set debugging to true to delete the log folders every time you run the program
-debugging = True
+debugging = False
 
 if debugging:
     exists = os.path.isfile(run_folder + 'logs/logger_main.log')
@@ -110,6 +110,7 @@ from config import PLAYER_COUNT, DECISION_TYPES
 # state to get the decision type from so I'm going to make separate
 # memories for now
 memories = []
+
 
 if initialise.INITIAL_MEMORY_VERSION == [None]:
     for i in range(DECISION_TYPES):

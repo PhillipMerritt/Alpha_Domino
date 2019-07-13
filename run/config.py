@@ -4,8 +4,8 @@ TEAM_SIZE = 2
 DECISION_TYPES = 3
 
 #### SELF PLAY
-EPISODES = 30
-MCTS_SIMS = 30
+EPISODES = 5
+MCTS_SIMS = 20
 MEMORY_SIZE = 1500	# default was 30000 which would take 1500ish episodes to reach
 TURNS_UNTIL_TAU0 = 15 # turn on which it starts playing deterministically
 CPUCT = 1
@@ -22,12 +22,8 @@ MOMENTUM = 0.9
 TRAINING_LOOPS = 10
 
 HIDDEN_CNN_LAYERS = [
-	{'filters':75, 'kernel_size': (4,4)}
-	 , {'filters':75, 'kernel_size': (4,4)}
-	 , {'filters':75, 'kernel_size': (4,4)}
-	 , {'filters':75, 'kernel_size': (4,4)}
-	 , {'filters':75, 'kernel_size': (4,4)}
-	 , {'filters':75, 'kernel_size': (4,4)}
+	{'filters':16, 'kernel_size': (3,3)}
+	 , {'filters':16, 'kernel_size': (3,3)}
 	]
 
 #### EVALUATION

@@ -1,3 +1,7 @@
+from timeit import default_timer as timer#timer 
+import time_keeper as tk
+from time_keeper import *
+
 import numpy as np
 import random
 
@@ -40,7 +44,7 @@ def playMatchesBetweenVersions(env, run_version_1,run_version_2, player1version,
 
 
 def playMatches(agents, EPISODES, logger, turns_until_tau0, memory = None, goes_first = 0):
-
+    total_time_avg = 0
     env = Game()
     scores = {"drawn": 0}
     for i in range(PLAYER_COUNT):
@@ -69,6 +73,7 @@ def playMatches(agents, EPISODES, logger, turns_until_tau0, memory = None, goes_
             points[i] = []
 
         env.gameState.render(logger)
+        start_game = timer()
 
         while done == 0:
             turn_t = turn_t + 1 # turns until tao tracker
@@ -137,5 +142,16 @@ def playMatches(agents, EPISODES, logger, turns_until_tau0, memory = None, goes_
                     #points[players[state.playerTurn]['name']].append(pts)
                     points[i].append(pts)
                     points[(i+2)%PLAYER_COUNT].append(pts)
-
+        end_game = timer()
+        tk.total_game_time = end_game - start_game
+        total_time_avg += tk.total_game_time
+        #tk.print_ratios(tk.total_game_time, tk.move_to_leaf_time, tk.evaluate_leaf_time, tk.get_preds_time, tk.backfill_time, tk.take_action_time, tk.predict_time)
+        tk.total_game_time = 0 
+        tk.move_to_leaf_time = 0
+        tk.evaluate_leaf_time = 0 
+        tk.get_preds_time = 0 
+        tk.backfill_time = 0 
+        tk.take_action_time = 0 
+        tk.predict_time = 0 
+    print("Avg game time: {0}".format(total_time_avg/EPISODES))
     return (scores, memory, points)

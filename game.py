@@ -210,7 +210,7 @@ class GameState():
         return GameState(self.playerTurn, new_hands, self.collections, self.high_bid, self.highest_bidder, self.passed, self.marks,
                          self.tricks_won, self.trump_suit, self.f_m_suit, self.decision_type, self.played_dominoes)
 
-    def _binary(self):  # converts the state to a 6x28 binary representation
+    def _binary(self):  # converts the state to a 16x28 binary representation
                         # turn sequence is current player, their teammate, then their two opponents
     # hands in turn sequence, collections in turn sequence, bids in turn sequence,board, played domino (for trump suit choosing), trump suit
         position = np.zeros((16, 28), dtype=np.int)

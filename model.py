@@ -26,8 +26,8 @@ class Gen_Model():
 		self.input_dim = input_dim
 		self.output_dim = output_dim
 
-	def predict(self, x):
-		return self.model.predict(x)
+	def predict(self, x, batch_size_arg=None):
+		return self.model.predict(x,batch_size=batch_size_arg)
 
 	def fit(self, states, targets, epochs, verbose, validation_split, batch_size):
 		return self.model.fit(states, targets, epochs=epochs, verbose=verbose, validation_split = validation_split, batch_size = batch_size)

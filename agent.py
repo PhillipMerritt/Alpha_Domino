@@ -1,4 +1,7 @@
 # %matplotlib inline
+from timeit import default_timer as timer#timer 
+import time_keeper as tk
+from time_keeper import *
 
 import numpy as np
 import random
@@ -15,6 +18,8 @@ import time
 import matplotlib.pyplot as plt
 from IPython import display
 import pylab as pl
+
+import time
 
 
 class User():
@@ -62,14 +67,25 @@ class Agent():
         lg.logger_mcts.info('CURRENT PLAYER...%d', self.mcts.root.state.playerTurn)
 
         ##### MOVE THE LEAF NODE
+
+        start = timer()
         leaf, value, done, breadcrumbs = self.mcts.moveToLeaf()
+        end = timer()
+        tk.move_to_leaf_time += end - start
+
         leaf.state.render(lg.logger_mcts)
 
         ##### EVALUATE THE LEAF NODE
+        start = timer()
         value, breadcrumbs = self.evaluateLeaf(leaf, value, done, breadcrumbs)
+        end = timer()
+        tk.evaluate_leaf_time += end - start
 
         ##### BACKFILL THE VALUE THROUGH THE TREE
+        start = timer()
         self.mcts.backFill(leaf, value, breadcrumbs)
+        end = timer()
+        tk.backfill_time += end - start
 
     def act(self, state, tau):
         state = state.CloneAndRandomize()
@@ -80,9 +96,7 @@ class Agent():
         else:
             self.changeRootMCTS(state)
 
-        randomized_loops = 10
-        avg_pi = np.zeros(len(self.mcts.root.edges))
-        avg_values = np.zeros(len(self.mcts.root.edges))
+        randomized_loops = 3
         for i in range(randomized_loops):
             lg.logger_mcts.info('***************************')
             lg.logger_mcts.info('****** RANDOMIZED HIDDEN INFO %d ******', i + 1)
@@ -98,10 +112,14 @@ class Agent():
              #### get action values
             temp_pi, temp_values = self.getAV(1, d_t)
 
-            avg_pi += temp_pi
-            avg_values += temp_values
+            if i == 0:
+                avg_pi = temp_pi
+                avg_values = temp_values
+            else:
+                avg_pi += temp_pi
+                avg_values += temp_values
             
-            if i < self.randomized_loops:
+            if i < randomized_loops:
                     state = state.CloneAndRandomize() # determinize
                     self.mcts.root.state = state
 
@@ -111,24 +129,31 @@ class Agent():
 
         ####pick the action
         action, value = self.chooseAction(avg_pi, avg_values, tau)
-
+        
+        start = timer()
         nextState, _, _ = state.takeAction(action)
+        end = timer()
+        tk.take_action_time += end - start
 
         NN_value = -self.get_preds(nextState,d_t)[0]
 
-        lg.logger_mcts.info('ACTION VALUES...%s', pi)
+        lg.logger_mcts.info('ACTION VALUES...%s', avg_pi)
         lg.logger_mcts.info('CHOSEN ACTION...%d', action)
         lg.logger_mcts.info('MCTS PERCEIVED VALUE...%f', value)
         lg.logger_mcts.info('NN PERCEIVED VALUE...%f', NN_value)
 
-        return (action, pi, value, NN_value)
+        return (action, avg_pi, value, NN_value)
 
     def get_preds(self, state, decision_type):
         decision_type = state.decision_type
         # predict the leaf
         inputToModel = np.array([self.model[decision_type].convertToModelInput(state)])
 
-        preds = self.model[decision_type].predict(inputToModel)
+        start = timer()
+        preds = self.model[decision_type].predict(inputToModel, 64)
+        end = timer()
+        tk.predict_time += end - start
+
         value_array = preds[0]
         logits_array = preds[1]
         value = value_array[0]
@@ -152,14 +177,21 @@ class Agent():
         lg.logger_mcts.info('------EVALUATING LEAF------')
 
         if done == 0:
-
+            start = timer()
             value, probs, allowedActions = self.get_preds(leaf.state, leaf.state.decision_type)
+            end = timer()
+            tk.get_preds_time += end - start
             lg.logger_mcts.info('PREDICTED VALUE FOR %d: %f', leaf.state.playerTurn, value)
 
             probs = probs[allowedActions]
 
             for idx, action in enumerate(allowedActions):
+                start = timer()
                 newState, _, _ = leaf.state.takeAction(action)
+                end = timer()
+
+                tk.take_action_time += end - start
+
                 if newState.id not in self.mcts.tree:
                     node = mc.Node(newState)
                     self.mcts.addNode(node)
@@ -234,8 +266,8 @@ class Agent():
         print('\n')
         self.model[d_t].printWeightAverages()
 
-    def predict(self, inputToModel):
-        preds = self.model.predict(inputToModel)
+    def predict(self, inputToModel, batch_size=None):
+        preds = self.model.predict(inputToModel,batch_size)
         return preds
 
     def buildMCTS(self, state):
