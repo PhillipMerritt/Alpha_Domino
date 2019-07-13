@@ -58,11 +58,8 @@ class MCTS():
 		done = 0
 		value = 0
 
-		depth = 0
-		maximum_depth = 4
 
 		while not currentNode.isLeaf():
-			depth += 1
 
 			lg.logger_mcts.info('PLAYER TURN...%d', currentNode.state.playerTurn)
 		
@@ -103,9 +100,6 @@ class MCTS():
 
 			currentNode = simulationEdge.outNode
 			breadcrumbs.append(simulationEdge)
-
-			if depth == maximum_depth:
-				break
 
 		lg.logger_mcts.info('DONE...%d', done)
 

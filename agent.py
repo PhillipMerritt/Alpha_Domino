@@ -80,21 +80,37 @@ class Agent():
         else:
             self.changeRootMCTS(state)
 
-        #### run the simulation
-        for sim in range(self.MCTSsimulations):
+        randomized_loops = 10
+        avg_pi = np.zeros(len(self.mcts.root.edges))
+        avg_values = np.zeros(len(self.mcts.root.edges))
+        for i in range(randomized_loops):
             lg.logger_mcts.info('***************************')
-            lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
+            lg.logger_mcts.info('****** RANDOMIZED HIDDEN INFO %d ******', i + 1)
             lg.logger_mcts.info('***************************')
-            self.simulate()
-            if sim < self.MCTSsimulations - 1:
-                state = state.CloneAndRandomize() # determinize
-                self.mcts.root.state = state
 
-        #### get action values
-        pi, values = self.getAV(1, d_t)
+            #### run the simulation
+            for sim in range(self.MCTSsimulations):
+                lg.logger_mcts.info('\t***************************')
+                lg.logger_mcts.info('\t****** SIMULATION %d ******', sim + 1)
+                lg.logger_mcts.info('\t***************************')
+                self.simulate()
+
+             #### get action values
+            temp_pi, temp_values = self.getAV(1, d_t)
+
+            avg_pi += temp_pi
+            avg_values += temp_values
+            
+            if i < self.randomized_loops:
+                    state = state.CloneAndRandomize() # determinize
+                    self.mcts.root.state = state
+
+
+        avg_pi = avg_pi/randomized_loops
+        avg_values = avg_values/randomized_loops
 
         ####pick the action
-        action, value = self.chooseAction(pi, values, tau)
+        action, value = self.chooseAction(avg_pi, avg_values, tau)
 
         nextState, _, _ = state.takeAction(action)
 
