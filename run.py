@@ -27,15 +27,15 @@ if debugging:
 
 import numpy as np
 np.set_printoptions(suppress=True)
-#seed = 808 # np.random.random_integers(0,5000)
+seed = 808 # np.random.random_integers(0,5000)
 #print(seed)
-#np.random.seed(seed=seed)
+np.random.seed(seed=seed)
 
 from shutil import copyfile
 import random
-#py_seed = 967 #random.randint(0,1000)
+py_seed = 967 #random.randint(0,1000)
 #print("Python seed: {0}".format(py_seed))
-#random.seed(py_seed)
+random.seed(py_seed)
 from importlib import reload
 import sys
 

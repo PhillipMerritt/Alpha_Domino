@@ -11,7 +11,7 @@ from game import GameState
 from loss import softmax_cross_entropy_with_logits
 
 import config
-from config import DECISION_TYPES
+from config import DECISION_TYPES, RANDOMIZED_SIM_LOOPS
 import loggers as lg
 import time
 
@@ -96,8 +96,7 @@ class Agent():
         else:
             self.changeRootMCTS(state)
 
-        randomized_loops = 3
-        for i in range(randomized_loops):
+        for i in range(RANDOMIZED_SIM_LOOPS):
             lg.logger_mcts.info('***************************')
             lg.logger_mcts.info('****** RANDOMIZED HIDDEN INFO %d ******', i + 1)
             lg.logger_mcts.info('***************************')
@@ -119,13 +118,13 @@ class Agent():
                 avg_pi += temp_pi
                 avg_values += temp_values
             
-            if i < randomized_loops:
+            if i < RANDOMIZED_SIM_LOOPS:
                     state = state.CloneAndRandomize() # determinize
-                    self.mcts.root.state = state
+                    self.buildMCTS(state)
 
 
-        avg_pi = avg_pi/randomized_loops
-        avg_values = avg_values/randomized_loops
+        avg_pi = avg_pi/RANDOMIZED_SIM_LOOPS
+        avg_values = avg_values/RANDOMIZED_SIM_LOOPS
 
         ####pick the action
         action, value = self.chooseAction(avg_pi, avg_values, tau)
@@ -150,7 +149,7 @@ class Agent():
         inputToModel = np.array([self.model[decision_type].convertToModelInput(state)])
 
         start = timer()
-        preds = self.model[decision_type].predict(inputToModel, 64)
+        preds = self.model[decision_type].predict(inputToModel)
         end = timer()
         tk.predict_time += end - start
 
