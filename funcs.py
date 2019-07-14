@@ -113,15 +113,16 @@ def playMatches(agents, EPISODES, logger, turns_until_tau0, memory = None, goes_
 
             if done == 1: 
                 if memory != None:
-                    #### If the game is finished, assign the values correctly to the game moves
-                    if memory[d_t] != None:
-                        for move in memory[d_t].stmemory:
-                            # if the memory is for a player on the opposite team store the value
-                            """if move['playerTurn'] == (turn + 1) % PLAYER_COUNT or move['playerTurn'] == (turn + 3) % PLAYER_COUNT:
-                                move['value'] = value
-                            else:   # else store the opposite of the value
-                                move['value'] = -value"""
-                            move['value'] = value[move['playerTurn'] % int(PLAYER_COUNT/TEAM_SIZE)]
+                    #### If the game is finished, assign the values correctly to the history of moves from the game
+                    for d_t in range(config.DECISION_TYPES):
+                        if memory[d_t] != None:
+                            for move in memory[d_t].stmemory:
+                                # if the memory is for a player on the opposite team store the value
+                                """if move['playerTurn'] == (turn + 1) % PLAYER_COUNT or move['playerTurn'] == (turn + 3) % PLAYER_COUNT:
+                                    move['value'] = value
+                                else:   # else store the opposite of the value
+                                    move['value'] = -value"""
+                                move['value'] = value[move['playerTurn'] % int(PLAYER_COUNT/TEAM_SIZE)]
 
                     for i in range(0,3):
                         if memory[i] != None:

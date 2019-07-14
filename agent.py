@@ -238,7 +238,7 @@ class Agent():
 
         for i in range(config.TRAINING_LOOPS):
             minibatch = random.sample(ltmemory, min(config.BATCH_SIZE, len(ltmemory)))
-
+            
             training_states = np.array([self.model[d_t].convertToModelInput(row['state']) for row in minibatch])
             training_targets = {'value_head': np.array([row['value'] for row in minibatch])
                 , 'policy_head': np.array([row['AV'] for row in minibatch])}
