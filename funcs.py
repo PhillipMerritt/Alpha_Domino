@@ -78,53 +78,50 @@ def playMatches(agents, EPISODES, logger, turns_until_tau0, memory = None, goes_
         while done == 0:
             turn_t = turn_t + 1 # turns until tao tracker
             d_t = state.decision_type
-            #### Run the MCTS algo and return an action unless there is 1 or less options
-            if len(state.allowedActions) < 2:
-                if len(state.allowedActions) == 0:
-                    action = -1
-                else:
-                    action = state.allowedActions[0]
+            #### Run the MCTS algo and return an action
+            if turn_t < turns_until_tau0:                                 # this is where we will generate random hands
+                action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 1)
             else:
-                if turn_t < turns_until_tau0:                                 # this is where we will generate random hands
-                    action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 1)
-                else:
-                    action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
+                action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
 
-                    # store decision type from state
+                # store decision type from state
 
-                if memory != None and memory[d_t] != None:
-                    ####Commit the move to memory
-                    memory[d_t].commit_stmemory(env.identities, state, pi)
+            if memory != None and memory[d_t] != None:
+                ####Commit the move to memory
+                memory[d_t].commit_stmemory(env.identities, state, pi)
 
-                if agents[0].name != 'User1':
-                    logger.info('action: %d', action)
-                    #for r in range(env.grid_shape[0]):
-                     #   logger.info(['----' if x == 0 else '{0:.2f}'.format(np.round(x,2)) for x in pi[env.grid_shape[1]*r : (env.grid_shape[1]*r + env.grid_shape[1])]])
-                    logger.info('MCTS perceived value for %s: %f', action ,np.round(MCTS_value,2))
-                    logger.info('NN perceived value for %s: %f', action ,np.round(NN_value,2))
-                    logger.info('====================')
+            if agents[0].name != 'User1':
+                logger.info('action: %d', action)
+                #for r in range(env.grid_shape[0]):
+                    #   logger.info(['----' if x == 0 else '{0:.2f}'.format(np.round(x,2)) for x in pi[env.grid_shape[1]*r : (env.grid_shape[1]*r + env.grid_shape[1])]])
+                logger.info('MCTS perceived value for %s: %f', action ,np.round(MCTS_value,2))
+                logger.info('NN perceived value for %s: %f', action ,np.round(NN_value,2))
+                logger.info('====================')
 
             ### Do the action
             turn = state.playerTurn
 
-            state, value, done, _ = env.step(action, logger) #the value of the newState from the POV of the new playerTurn i.e. -1 if the previous player played a winning move
+            state, value, done, _ = env.step(action, logger) # the value is [1,-1] if team/player 0 won or the opposite if team/player 1 won otherwise it's [0,0]
             
             #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
 
-            if done == 1: 
+            if done == 1:
+                if value[0] == 1:
+                    winning_team = 0
+                else:
+                    winning_team = 1
+
                 if memory != None:
-                    #### If the game is finished, assign the values correctly to the history of moves from the game
+                    #### If the game is finished, assign the values to the history of moves from the game
                     for d_t in range(config.DECISION_TYPES):
                         if memory[d_t] != None:
                             for move in memory[d_t].stmemory:
-                                # if the memory is for a player on the opposite team store the value
-                                """if move['playerTurn'] == (turn + 1) % PLAYER_COUNT or move['playerTurn'] == (turn + 3) % PLAYER_COUNT:
-                                    move['value'] = value
-                                else:   # else store the opposite of the value
-                                    move['value'] = -value"""
-                                move['value'] = value[move['playerTurn'] % int(PLAYER_COUNT/TEAM_SIZE)]
+                                if move['playerTurn'] % int(PLAYER_COUNT/TEAM_SIZE) == winning_team:
+                                    move['value'] = 1
+                                else:
+                                    move['value'] = -1
 
-                    for i in range(0,3):
+                    for i in range(config.DECISION_TYPES):
                         if memory[i] != None:
                             memory[i].commit_ltmemory()
              

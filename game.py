@@ -322,13 +322,18 @@ class GameState():
         return 0
 
     def _getValue(self):
-        # This is the value of the state
+         # This is the value of the state
         if self.marks[0] >= 7:
-            return [1, -1]
+            winning_team = 0
         elif self.marks[1] >= 7:
-            return [-1, 1]
+            winning_team = 1
         else:
             return [0,0]
+
+        if (self.playerTurn % 2) == winning_team:
+            return [1,-1]
+        else:
+            return [-1, 1]
 
     def deal_hands(self):
         hands = [[], [], [], []]
@@ -489,14 +494,16 @@ class GameState():
                     points_to_win = self.high_bid
                     points_to_block = 42 - self.high_bid + 1
 
+                # if the highest_bidder is team 0 and they scored enough to win or if the highest_bidder is team 1 and team 0 scored enough to block
                 if (self.highest_bidder == 0 and added_points[0] >= points_to_win) or (self.highest_bidder == 1 and added_points[0] >= points_to_block):
                     hand_complete = True
 
-
+                    # team 0 wins the marks
                     if self.high_bid <= 42:
                         new_marks[0] += 1
                     else:
                         new_marks[0] += self.bids_to_marks[self.high_bid]
+                # if the highest_bidder is team 1 and they scored enough to win or if the highest_bidder is team 0 and team 1 scored enough to block
                 elif (self.highest_bidder == 1 and added_points[1] >= points_to_win) or (self.highest_bidder == 0 and added_points[1] >= points_to_block):
                     hand_complete = True
 

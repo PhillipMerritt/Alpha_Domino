@@ -4,10 +4,10 @@ TEAM_SIZE = 2
 DECISION_TYPES = 3
 
 #### SELF PLAY
-EPISODES = 10
-MCTS_SIMS = 20
+EPISODES = 20
+MCTS_SIMS = 30
 RANDOMIZED_SIM_LOOPS = 2
-MEMORY_SIZE = 500	# default was 30000 which would take 1500ish episodes to reach
+MEMORY_SIZE = 1000	# default was 30000 which would take 1500ish episodes to reach
 TURNS_UNTIL_TAU0 = 15 # turn on which it starts playing deterministically
 CPUCT = 1
 EPSILON = 0.2

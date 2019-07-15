@@ -8,7 +8,7 @@ from keras.backend.tensorflow_backend import set_session
 config.gpu_options.allow_growth = True
 set_session(tf.Session(config=config))"""
 
-from settings import run_folder
+import settings
 import os
 
 play_vs_self = False    # set this to true to take control of all 4 players
@@ -17,25 +17,25 @@ play_vs_self = False    # set this to true to take control of all 4 players
 debugging = False
 
 if debugging:
-    exists = os.path.isfile(run_folder + 'logs/logger_main.log')
+    exists = os.path.isfile(settings.run_folder + 'logs/logger_main.log')
     if exists:
-        os.remove(run_folder + 'logs/logger_main.log')
+        os.remove(settings.run_folder + 'logs/logger_main.log')
 
-    exists = os.path.isfile(run_folder + 'logs/logger_mcts.log')
+    exists = os.path.isfile(settings.run_folder + 'logs/logger_mcts.log')
     if exists:
-        os.remove(run_folder + 'logs/logger_mcts.log')
+        os.remove(settings.run_folder + 'logs/logger_mcts.log')
 
 import numpy as np
 np.set_printoptions(suppress=True)
-seed = 808 # np.random.random_integers(0,5000)
+#seed = 808 # np.random.random_integers(0,5000)
 #print(seed)
-np.random.seed(seed=seed)
+#np.random.seed(seed=seed)
 
 from shutil import copyfile
 import random
-py_seed = 967 #random.randint(0,1000)
+#py_seed = 967 #random.randint(0,1000)
 #print("Python seed: {0}".format(py_seed))
-random.seed(py_seed)
+#random.seed(py_seed)
 from importlib import reload
 import sys
 
@@ -188,6 +188,7 @@ while 1:
     print('BEST PLAYER VERSION ' + str(best_player_version))
 
     ######## CREATE LIST OF PLAYERS #######
+    # for training it is just 4 copies of best_player
     best_players = []
     for i in range(PLAYER_COUNT):
         best_players.append(best_player)
