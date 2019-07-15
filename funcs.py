@@ -106,7 +106,7 @@ def playMatches(agents, EPISODES, logger, turns_until_tau0, memory = None, goes_
             #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
 
             if done == 1:
-                if value[0] == 1:
+                if value[0] == 1:   # assuming there are no draws for now
                     winning_team = 0
                 else:
                     winning_team = 1

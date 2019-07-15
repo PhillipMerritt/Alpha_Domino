@@ -74,6 +74,8 @@ class MCTS():
 				epsilon = 0
 				nu = [0] * len(currentNode.edges)
 
+				
+
 			Nb = 0
 			for action, edge in currentNode.edges:
 				Nb = Nb + edge.stats['N']

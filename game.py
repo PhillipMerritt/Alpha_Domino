@@ -324,16 +324,11 @@ class GameState():
     def _getValue(self):
          # This is the value of the state
         if self.marks[0] >= 7:
-            winning_team = 0
+            return [1,-1]
         elif self.marks[1] >= 7:
-            winning_team = 1
+            return [-1, 1]
         else:
             return [0,0]
-
-        if (self.playerTurn % 2) == winning_team:
-            return [1,-1]
-        else:
-            return [-1, 1]
 
     def deal_hands(self):
         hands = [[], [], [], []]

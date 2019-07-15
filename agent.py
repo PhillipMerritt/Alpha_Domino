@@ -96,52 +96,34 @@ class Agent():
         else:
             self.changeRootMCTS(state)
 
-        for i in range(RANDOMIZED_SIM_LOOPS):
+        #### run the simulation
+        for sim in range(self.MCTSsimulations):
             lg.logger_mcts.info('***************************')
-            lg.logger_mcts.info('****** RANDOMIZED HIDDEN INFO %d ******', i + 1)
+            lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
             lg.logger_mcts.info('***************************')
+            self.simulate()
+            if sim < self.MCTSsimulations - 1:
+                state = state.CloneAndRandomize() # determinize
+                self.mcts.root.state = state
 
-            #### run the simulation
-            for sim in range(self.MCTSsimulations):
-                lg.logger_mcts.info('\t***************************')
-                lg.logger_mcts.info('\t****** SIMULATION %d ******', sim + 1)
-                lg.logger_mcts.info('\t***************************')
-                self.simulate()
-
-             #### get action values
-            temp_pi, temp_values = self.getAV(1, d_t)
-
-            if i == 0:
-                avg_pi = temp_pi
-                avg_values = temp_values
-            else:
-                avg_pi += temp_pi
-                avg_values += temp_values
-            
-            if i < RANDOMIZED_SIM_LOOPS:
-                    state = state.CloneAndRandomize() # determinize
-                    self.buildMCTS(state)
-
-
-        avg_pi = avg_pi/RANDOMIZED_SIM_LOOPS
-        avg_values = avg_values/RANDOMIZED_SIM_LOOPS
+        #### get action values
+        pi, values = self.getAV(1, d_t)
 
         ####pick the action
-        action, value = self.chooseAction(avg_pi, avg_values, tau)
-        
+        action, value = self.chooseAction(pi, values, tau)
+
         start = timer()
         nextState, _, _ = state.takeAction(action)
         end = timer()
         tk.take_action_time += end - start
-
         NN_value = -self.get_preds(nextState,d_t)[0]
 
-        lg.logger_mcts.info('ACTION VALUES...%s', avg_pi)
+        lg.logger_mcts.info('ACTION VALUES...%s', pi)
         lg.logger_mcts.info('CHOSEN ACTION...%d', action)
         lg.logger_mcts.info('MCTS PERCEIVED VALUE...%f', value)
         lg.logger_mcts.info('NN PERCEIVED VALUE...%f', NN_value)
-
-        return (action, avg_pi, value, NN_value)
+        
+        return (action, pi, value, NN_value)
 
     def get_preds(self, state, decision_type):
         decision_type = state.decision_type
