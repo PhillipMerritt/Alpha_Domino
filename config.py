@@ -4,7 +4,7 @@ TEAM_SIZE = 2
 DECISION_TYPES = 3
 
 #### SELF PLAY
-EPISODES = 5
+EPISODES = 20
 MCTS_SIMS = 30
 RANDOMIZED_SIM_LOOPS = 2
 MEMORY_SIZE = 1000	# default was 30000 which would take 1500ish episodes to reach
@@ -23,10 +23,10 @@ MOMENTUM = 0.9
 TRAINING_LOOPS = 10
 
 HIDDEN_CNN_LAYERS = [
-	{'filters':8, 'kernel_size': (4,4)}
-	 , {'filters':8, 'kernel_size': (4,4)}
+	{'filters':16, 'kernel_size': (4,4)}
+	 , {'filters':16, 'kernel_size': (4,4)}
 	]
 
 #### EVALUATION
-EVAL_EPISODES = 8
+EVAL_EPISODES = 12
 SCORING_THRESHOLD = 1.3

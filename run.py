@@ -12,6 +12,7 @@ import settings
 import os
 
 play_vs_self = False    # set this to true to take control of all 4 players
+play_vs_agent = False   # set this to true to play against a trained
 
 ############ Set debugging to true to delete the log folders every time you run the program
 debugging = False
@@ -116,11 +117,10 @@ if initialise.INITIAL_MEMORY_VERSION == [None]:
     for i in range(DECISION_TYPES):
         memories.append(Memory(config.MEMORY_SIZE))
 else:
-    for MEM_VERSION in initialise.INITIAL_MEMORY_VERSION:
-        print('LOADING MEMORY VERSION ' + str(initialise.INITIAL_MEMORY_VERSION) + '...')
+    for d_t, MEM_VERSION in enumerate(initialise.INITIAL_MEMORY_VERSION):
+        print('LOADING MEMORY VERSION ' + str(MEM_VERSION) + '...')
         memories.append(pickle.load(open(
-            run_archive_folder + env.name + '/run' + str(initialise.INITIAL_RUN_NUMBER).zfill(4) + "/memory/memory" + str(
-                initialise.INITIAL_MEMORY_VERSION).zfill(4) + ".p", "rb")))
+            run_archive_folder + env.name + '/run' + str(initialise.INITIAL_RUN_NUMBER).zfill(4) + "/memory/decision_" + str(d_t) + "_memory" + str(MEM_VERSION).zfill(4) + ".p", "rb")))
 
 ######## LOAD MODEL IF NECESSARY ########
 
@@ -130,18 +130,18 @@ best_NN = []
 # create an untrained neural network objects from the config file
 for i in range(DECISION_TYPES):
     current_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
-                          config.HIDDEN_CNN_LAYERS))
+                          config.HIDDEN_CNN_LAYERS, i))
     best_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
-                                   config.HIDDEN_CNN_LAYERS))
+                                   config.HIDDEN_CNN_LAYERS, i))
 
 
 best_player_version = []
 # If loading an existing neural netwrok, set the weights from that model
 if initialise.INITIAL_MODEL_VERSION != [None]:
     for i, MODEL_VERSION in enumerate(initialise.INITIAL_MODEL_VERSION):
-        best_player_version.append(initialise.MODEL_VERSION)
+        best_player_version.append(initialise.INITIAL_MODEL_VERSION)
         print('LOADING MODEL VERSION ' + str(initialise.INITIAL_MODEL_VERSION) + '...')
-        m_tmp = best_NN.read(env.name, initialise.INITIAL_RUN_NUMBER, best_player_version)
+        m_tmp = best_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, best_player_version)
         current_NN[i].model.set_weights(m_tmp.get_weights())
         best_NN[i].model.set_weights(m_tmp.get_weights())
 # otherwise just ensure the weights on the two players are the same
@@ -176,6 +176,16 @@ if play_vs_self:
 
     playMatches(user_players,1,lg.logger_main,500)
 
+if play_vs_agent:
+    players = []
+    players.append(User('User1', env.state_size, env.action_size))
+    players.append(best_player)
+    players.append(User('User2', env.state_size, env.action_size))
+    players.append(best_player)
+
+    playMatches(players,1,lg.logger_main,0)
+    exit(0)
+
 while 1:
 
     iteration += 1
@@ -208,7 +218,7 @@ while 1:
             print('RETRAINING...')
             current_player.replay(memory.ltmemory,d_t)
             print('')
-
+            
             if iteration % 5 == 0:
                 pickle.dump(memory, open(run_folder + "memory/decision_" + str(d_t) + "_memory" + str(iteration).zfill(4) + ".p", "wb"))
 
