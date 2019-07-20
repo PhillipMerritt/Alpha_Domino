@@ -110,10 +110,11 @@ run/models/*
 analysis/
 archive/
 ipynb/
-run_archive/
+run_archive/*
 code_archive/
 games/archive/
 .idea/
 .vs/
 __pycache__/
 *.pyc
+.vscode/*
