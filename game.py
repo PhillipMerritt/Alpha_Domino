@@ -80,14 +80,6 @@ class Game:
     def identities(self, state, actionValues):  # haven't looked into what this function is doing quite yet
         identities = [(state, actionValues)]
 
-        """ currentHands = state.hands
-        currentBids = state.bids
-        currentPlayed = state.played_dominoes
-        currentAV = actionValues
-
-        identities.append(
-            (GameState(currentHands, currentPlayed, currentBids, state.playerTurn), currentAV))
-        """
         return identities
 
 

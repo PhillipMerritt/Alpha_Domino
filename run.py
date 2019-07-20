@@ -113,7 +113,7 @@ from config import PLAYER_COUNT, DECISION_TYPES
 memories = []
 
 
-if initialise.INITIAL_MEMORY_VERSION == [None]:
+if initialise.INITIAL_MEMORY_VERSION == [None] * DECISION_TYPES:
     for i in range(DECISION_TYPES):
         memories.append(Memory(config.MEMORY_SIZE))
 else:
@@ -137,7 +137,7 @@ for i in range(DECISION_TYPES):
 
 best_player_version = []
 # If loading an existing neural netwrok, set the weights from that model
-if initialise.INITIAL_MODEL_VERSION != [None]:
+if initialise.INITIAL_MODEL_VERSION != [None] * DECISION_TYPES:
     for i, MODEL_VERSION in enumerate(initialise.INITIAL_MODEL_VERSION):
         best_player_version.append(initialise.INITIAL_MODEL_VERSION)
         print('LOADING MODEL VERSION ' + str(initialise.INITIAL_MODEL_VERSION) + '...')
@@ -208,11 +208,13 @@ while 1:
     _, memories, _ = playMatches(best_players, config.EPISODES, lg.logger_main,
                                   turns_until_tau0=config.TURNS_UNTIL_TAU0, memory=memories)
     print('\n')
+    
+    full_memory = True
 
     for d_t,memory in enumerate(memories):
         memory.clear_stmemory()
 
-        if len(memory.ltmemory) >= config.MEMORY_SIZE:
+        if len(memory.ltmemory) >= config.MIN_MEMORY_SIZE:
 
             ######## RETRAINING ########
             print('RETRAINING...')
@@ -242,6 +244,16 @@ while 1:
                 lg.logger_memory.info('INPUT TO MODEL: %s', current_player.model[d_t].convertToModelInput(s['state']))
 
                 s['state'].render(lg.logger_memory)
+            
+            if len(memory.ltmemory) < config.MEMORY_SIZE:
+                full_memory = False
+        else:
+            full_memory = False
+
+    if full_memory and config.MEMORY_SIZE < config.MAX_MEMORY_SIZE:
+        config.MEMORY_SIZE += config.MEM_INCREMENT
+        for memory in memories:
+            memory.maxlen = config.MEMORY_SIZE
 
     ######## TOURNAMENT ########
     print('TOURNAMENT...')
