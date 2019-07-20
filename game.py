@@ -123,14 +123,17 @@ class GameState():
 
         self.playerTurn = playerTurn
 
-        self.allowedActions = self._allowedActions()  # generates the list of possible actions that are then given to the neural network
+        self.isEndGame = self._checkForEndGame()
+
+        if self.isEndGame:
+            self.allowedActions = []
+        else:
+            self.allowedActions = self._allowedActions()  # generates the list of possible actions that are then given to the neural network
 
         self.binary = self._binary()  # this is a binary representation of the board state which is basically just the board atm
         self.id = self._convertStateToId()  # the state ID is all 4 board lists appended one after the other.
         # these previous two may have been converted poorly from connect4 and are causing issues now
 
-
-        self.isEndGame = self._checkForEndGame()
         self.value = self._getValue()  # the value is from the POV of the current player. So either 0 for the game continuing or -1 if the last player made a winning move
         #self.score = self._getScore()
 
@@ -487,7 +490,7 @@ class GameState():
                     points_to_block = 1
                 else:
                     points_to_win = self.high_bid
-                    points_to_block = 42 - self.high_bid + 1
+                    points_to_block = 43 - self.high_bid
 
                 # if the highest_bidder is team 0 and they scored enough to win or if the highest_bidder is team 1 and team 0 scored enough to block
                 if (self.highest_bidder == 0 and added_points[0] >= points_to_win) or (self.highest_bidder == 1 and added_points[0] >= points_to_block):

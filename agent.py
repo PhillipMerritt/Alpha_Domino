@@ -6,7 +6,7 @@ from time_keeper import *
 import numpy as np
 import random
 
-import MCTS as mc
+import ISMCTS as mc
 from game import GameState
 from loss import softmax_cross_entropy_with_logits
 
@@ -69,7 +69,7 @@ class Agent():
         ##### MOVE THE LEAF NODE
 
         start = timer()
-        leaf, value, done, breadcrumbs = self.mcts.moveToLeaf()
+        leaf, value, done, breadcrumbs = self.mcts.moveToLeaf(self)
         end = timer()
         tk.move_to_leaf_time += end - start
 
@@ -167,21 +167,7 @@ class Agent():
             probs = probs[allowedActions]
 
             for idx, action in enumerate(allowedActions):
-                start = timer()
-                newState, _, _ = leaf.state.takeAction(action)
-                end = timer()
-
-                tk.take_action_time += end - start
-
-                if newState.id not in self.mcts.tree:
-                    node = mc.Node(newState)
-                    self.mcts.addNode(node)
-                    lg.logger_mcts.info('added node...%s...p = %f', node.id, probs[idx])
-                else:
-                    node = self.mcts.tree[newState.id]
-                    lg.logger_mcts.info('existing node...%s...', node.id)
-
-                newEdge = mc.Edge(leaf, node, probs[idx], action)
+                newEdge = mc.Edge(leaf, probs[idx], action)
                 leaf.edges.append((action, newEdge))
 
         else:
@@ -253,7 +239,7 @@ class Agent():
 
     def buildMCTS(self, state):
         lg.logger_mcts.info('****** BUILDING NEW MCTS TREE FOR AGENT %s ******', self.name)
-        self.root = mc.Node(state)
+        self.root = mc.Node(state, state.id)
         self.mcts = mc.MCTS(self.root, self.cpuct)
 
     def changeRootMCTS(self, state):
