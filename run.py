@@ -186,6 +186,8 @@ if play_vs_agent:
     playMatches(players,1,lg.logger_main,0)
     exit(0)
 
+trained = False
+
 while 1:
 
     iteration += 1
@@ -215,7 +217,7 @@ while 1:
         memory.clear_stmemory()
 
         if len(memory.ltmemory) >= config.MIN_MEMORY_SIZE:
-
+            trained = True
             ######## RETRAINING ########
             print('RETRAINING...')
             current_player.replay(memory.ltmemory,d_t)
@@ -254,34 +256,35 @@ while 1:
         config.MEMORY_SIZE += config.MEM_INCREMENT
         for memory in memories:
             memory.extension(config.MEMORY_SIZE)
+    
+    if trained:
+        ######## TOURNAMENT ########
+        print('TOURNAMENT...')
+        # this is fairly specific to Texas42
+        # players across from each other are on a team
+        # in a 2 player game this tournament would be against the best player and the current player
+        # so instead I made an list of players where two randomly sampled best_players are across from eachother
+        # and 2 copies of the current player are across from each other
+        #best_players = np.random.shuffle(best_players)
+        tourney_players = [best_players[0],current_player,best_players[1],current_player]
 
-    ######## TOURNAMENT ########
-    print('TOURNAMENT...')
-    # this is fairly specific to Texas42
-    # players across from each other are on a team
-    # in a 2 player game this tournament would be against the best player and the current player
-    # so instead I made an list of players where two randomly sampled best_players are across from eachother
-    # and 2 copies of the current player are across from each other
-    #best_players = np.random.shuffle(best_players)
-    tourney_players = [best_players[0],current_player,best_players[1],current_player]
+        scores, _, points = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
+                                                deterministic_play=True, memory=[None,None,None])
+        print('\nSCORES')
+        print(scores)
+        print('\n\n')
 
-    scores, _, points = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
-                                               deterministic_play=True, memory=[None,None,None])
-    print('\nSCORES')
-    print(scores)
-    print('\n\n')
+        # if the current player is significantly better than the best_player replace the best player
+        if scores['current_player'] > scores['best_player'] * config.SCORING_THRESHOLD:
+            for i in range(DECISION_TYPES):
+                best_player_version[i] = best_player_version[i] + 1
+                best_NN[i].model.set_weights(current_NN[i].model.get_weights())
+                best_NN[i].write(env.name, best_player_version[i])
 
-    # if the current player is significantly better than the best_player replace the best player
-    if scores['current_player'] > scores['best_player'] * config.SCORING_THRESHOLD:
-        for i in range(DECISION_TYPES):
-            best_player_version[i] = best_player_version[i] + 1
-            best_NN[i].model.set_weights(current_NN[i].model.get_weights())
-            best_NN[i].write(env.name, best_player_version[i])
-
-    else:
-        mem_size = 'MEMORY SIZE: '
-        for i, memory in enumerate(memories):
-            mem_size += str(i) + ':' + str(len(memory.ltmemory))
-            if i < DECISION_TYPES - 1:
-                mem_size += ', '
-        print(mem_size)
+        else:
+            mem_size = 'MEMORY SIZE: '
+            for i, memory in enumerate(memories):
+                mem_size += str(i) + ':' + str(len(memory.ltmemory))
+                if i < DECISION_TYPES - 1:
+                    mem_size += ', '
+            print(mem_size)
