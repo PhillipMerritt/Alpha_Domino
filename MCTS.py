@@ -118,11 +118,11 @@ class MCTS():
 	def backFill(self, leaf, value, breadcrumbs):
 		lg.logger_mcts.info('------DOING BACKFILL------')
 
-		currentPlayer = leaf.state.playerTurn
+		leaf_team = leaf.state.playerTurn % TEAM_SIZE
 
 		for edge in breadcrumbs:
 			playerTurn = edge.playerTurn
-			if playerTurn == currentPlayer or playerTurn == (currentPlayer + 2) % 4:	# added the or to set the values to positive for currentPlayer's partner
+			if playerTurn % 2 == leaf_team:	# added the or to set the values to positive for currentPlayer's partner
 				direction = 1
 			else:
 				direction = -1

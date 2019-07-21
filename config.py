@@ -4,11 +4,11 @@ TEAM_SIZE = 2
 DECISION_TYPES = 3
 
 #### SELF PLAY
-EPISODES = 20
+EPISODES = 30
 MCTS_SIMS = 30
 RANDOMIZED_SIM_LOOPS = 2
-MEMORY_SIZE = 500	# default was 30000 which would take 1500ish episodes to reach
-MIN_MEMORY_SIZE = 500 
+MEMORY_SIZE = 1000	# default was 30000 which would take 1500ish episodes to reach
+MIN_MEMORY_SIZE = 250
 MEM_INCREMENT = 250
 MAX_MEMORY_SIZE = 30000
 CPUCT = 1

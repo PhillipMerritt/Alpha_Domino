@@ -93,8 +93,8 @@ class GameState():
         self.doubles = [0, 2, 5, 9, 14, 20, 27]
         self.honors = {8:5,11:5,15:5,20:10,25:10}
         self.doms_in_suits = {0:[0],1:[1,2],2:[3,4,5],3:[6,7,8,9],4:[10,11,12,13,14],5:[15,16,17,18,19,20],6:[21,22,23,24,25,26,27,28],7:[0, 2, 5, 9, 14, 20, 27]}
-
-        self.possible_bids = list(range(30,43))
+        self.possible_bids = [0]
+        self.possible_bids.extend(list(range(30,43)))
         self.possible_bids.extend([84,168,336,672,1344,2688])
         self.bids_to_marks = {84:2,168:3,336:4,672:5,1344:6,2688:7} # dict to look up how many marks are won by winning a trick
 
@@ -134,28 +134,28 @@ class GameState():
         #
         # If no one bids, the tiles are reshuffled and dealt again.
         if self.decision_type == 0: # bidding phase
-            actions = [19]  # 19 will represent passing instead of raising the bid and will always be available
+            actions = [0]  # 0 will represent passing instead of raising the bid and will always be available
 
             # all bids represented as actions will be 0-16 so they will have 30 subtracted for the non doubled bids
             if not self.passed[self.playerTurn]: # if this player hasn't passed
                 if self.high_bid == -1:   # if no one has bid yet this player can bid anywhere from 30-84 and pass
-                    for i in range(0, 13):
+                    for i in range(1, 14):
                         actions.append(i)
-                    actions.append(13)
+                    actions.append(14)
                 elif self.high_bid < 42:   # if the bid is below 42 they can be anywhere from the highest bid + 1 to 42
                     for i in range(self.high_bid + 1, 43):
-                        actions.append(i - 30)
-                    actions.append(13)
-                elif self.high_bid == 84: # if the highest bid is 42 they can bid 84
+                        actions.append(i - 29)
                     actions.append(14)
-                elif self.high_bid == 168:   # if it is 84 they can bid 164
+                elif self.high_bid == 84: # if the highest bid is 42 they can bid 84
                     actions.append(15)
-                elif self.high_bid == 336:
+                elif self.high_bid == 168:   # if it is 84 they can bid 164
                     actions.append(16)
-                elif self.high_bid == 672:
+                elif self.high_bid == 336:
                     actions.append(17)
-                elif self.high_bid == 1344:
+                elif self.high_bid == 672:
                     actions.append(18)
+                elif self.high_bid == 1344:
+                    actions.append(19)
 
         elif self.decision_type == 1: # a domino is to be played
             actions = []
@@ -426,7 +426,7 @@ class GameState():
                 highest_bidder = self.playerTurn
                 next_player = highest_bidder
                 new_passed = [True,True,True,True]
-            elif action != 19:
+            elif action != 0:
                 new_high_bid = self.possible_bids[action]
                 highest_bidder = self.playerTurn
             else:

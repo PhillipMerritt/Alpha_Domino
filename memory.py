@@ -2,6 +2,7 @@ import numpy as np
 from collections import deque
 
 import config
+from importlib import reload
 
 class Memory:
 	def __init__(self, MEMORY_SIZE):
@@ -27,7 +28,9 @@ class Memory:
 		temp_deque = deque(maxlen=new_max)
 		temp_deque.extend(self.ltmemory)
 		self.ltmemory = temp_deque
+		self.MEMORY_SIZE = new_max
+	
 
 	def clear_stmemory(self):
-		self.stmemory = deque(maxlen=config.MEMORY_SIZE)
+		self.stmemory = deque(maxlen=self.MEMORY_SIZE)
 		

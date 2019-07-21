@@ -60,6 +60,14 @@ class Agent():
         self.val_value_loss = []
         self.val_policy_loss = []
 
+        for i in range(config.DECISION_TYPES):
+            self.train_overall_loss.append([])
+            self.train_value_loss.append([])
+            self.train_policy_loss.append([])
+            self.val_overall_loss.append([])
+            self.val_value_loss.append([])
+            self.val_policy_loss.append([])
+
     def simulate(self):
 
         lg.logger_mcts.info('ROOT NODE...%s', self.mcts.root.state.id)
@@ -215,20 +223,20 @@ class Agent():
                                  batch_size=32)
             lg.logger_mcts.info('NEW LOSS %s', fit.history)
 
-            self.train_overall_loss.append(round(fit.history['loss'][config.EPOCHS - 1], 4))
-            self.train_value_loss.append(round(fit.history['value_head_loss'][config.EPOCHS - 1], 4))
-            self.train_policy_loss.append(round(fit.history['policy_head_loss'][config.EPOCHS - 1], 4))
+            self.train_overall_loss[d_t].append(round(fit.history['loss'][config.EPOCHS - 1], 4))
+            self.train_value_loss[d_t].append(round(fit.history['value_head_loss'][config.EPOCHS - 1], 4))
+            self.train_policy_loss[d_t].append(round(fit.history['policy_head_loss'][config.EPOCHS - 1], 4))
 
-        plt.plot(self.train_overall_loss, 'k')
-        plt.plot(self.train_value_loss, 'k:')
-        plt.plot(self.train_policy_loss, 'k--')
+        plt.plot(self.train_overall_loss[d_t], 'k')
+        plt.plot(self.train_value_loss[d_t], 'k:')
+        plt.plot(self.train_policy_loss[d_t], 'k--')
 
         plt.legend(['train_overall_loss', 'train_value_loss', 'train_policy_loss'], loc='lower left')
 
         display.clear_output(wait=True)
         display.display(pl.gcf())
         pl.gcf().clear()
-        time.sleep(1.0)
+        time.sleep(.25)
 
         print('\n')
         self.model[d_t].printWeightAverages()

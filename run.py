@@ -103,7 +103,7 @@ if initialise.INITIAL_RUN_NUMBER != None:
              './config.py')
 
 import config
-from config import PLAYER_COUNT, DECISION_TYPES
+from config import PLAYER_COUNT, DECISION_TYPES, MEMORY_SIZE
 
 ######## LOAD MEMORIES IF NECESSARY ########
 
@@ -115,7 +115,7 @@ memories = []
 
 if initialise.INITIAL_MEMORY_VERSION == [None] * DECISION_TYPES:
     for i in range(DECISION_TYPES):
-        memories.append(Memory(config.MEMORY_SIZE))
+        memories.append(Memory(MEMORY_SIZE))
 else:
     for d_t, MEM_VERSION in enumerate(initialise.INITIAL_MEMORY_VERSION):
         print('LOADING MEMORY VERSION ' + str(MEM_VERSION) + '...')
@@ -247,15 +247,19 @@ while 1:
 
                 s['state'].render(lg.logger_memory)
             
-            if len(memory.ltmemory) < config.MEMORY_SIZE:
+            if len(memory.ltmemory) < MEMORY_SIZE:
                 full_memory = False
         else:
             full_memory = False
 
-    if full_memory and config.MEMORY_SIZE < config.MAX_MEMORY_SIZE:
-        config.MEMORY_SIZE += config.MEM_INCREMENT
+    if full_memory and MEMORY_SIZE < config.MAX_MEMORY_SIZE:
+        print("extending memory!")
+
+        MEMORY_SIZE += config.MEM_INCREMENT
+
+        print("new mem size: {0}".format(MEMORY_SIZE))
         for memory in memories:
-            memory.extension(config.MEMORY_SIZE)
+            memory.extension(MEMORY_SIZE)
     
     if trained:
         ######## TOURNAMENT ########
@@ -281,10 +285,10 @@ while 1:
                 best_NN[i].model.set_weights(current_NN[i].model.get_weights())
                 best_NN[i].write(env.name, best_player_version[i])
 
-        else:
-            mem_size = 'MEMORY SIZE: '
-            for i, memory in enumerate(memories):
-                mem_size += str(i) + ':' + str(len(memory.ltmemory))
-                if i < DECISION_TYPES - 1:
-                    mem_size += ', '
-            print(mem_size)
+    
+    mem_size = 'MEMORY SIZE: '
+    for i, memory in enumerate(memories):
+        mem_size += str(i) + ':' + str(len(memory.ltmemory))
+        if i < DECISION_TYPES - 1:
+            mem_size += ', '
+    print(mem_size)
