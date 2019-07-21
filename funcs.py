@@ -43,13 +43,15 @@ def playMatchesBetweenVersions(env, run_version_1,run_version_2, player1version,
     return (scores, memory, points, sp_scores)
 
 
-def playMatches(agents, EPISODES, logger, turns_until_tau0, memory = None, goes_first = 0):
+def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goes_first = 0):
     total_time_avg = 0
     env = Game()
     scores = {"drawn": 0}
     for i in range(PLAYER_COUNT):
         scores[agents[i].name] = 0
     #sp_scores = {'sp':0, "drawn": 0, 'nsp':0}
+    
+    turns = 0
 
     for e in range(EPISODES):
 
@@ -63,7 +65,6 @@ def playMatches(agents, EPISODES, logger, turns_until_tau0, memory = None, goes_
         state = env.reset()
         
         done = 0
-        turn_t = 0
         players = {}
         points = {}
 
@@ -76,10 +77,11 @@ def playMatches(agents, EPISODES, logger, turns_until_tau0, memory = None, goes_
         start_game = timer()
 
         while done == 0:
-            turn_t = turn_t + 1 # turns until tao tracker
+            turns = turns + 1 # turns until tao tracker
+
             d_t = state.decision_type
             #### Run the MCTS algo and return an action
-            if turn_t < turns_until_tau0:                                 # this is where we will generate random hands
+            if not deterministic_play:
                 action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 1)
             else:
                 action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
@@ -151,5 +153,5 @@ def playMatches(agents, EPISODES, logger, turns_until_tau0, memory = None, goes_
         tk.backfill_time = 0 
         tk.take_action_time = 0 
         tk.predict_time = 0 
-    print("Avg game time: {0}".format(total_time_avg/EPISODES))
+    print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
     return (scores, memory, points)

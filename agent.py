@@ -188,14 +188,14 @@ class Agent():
         return pi, values
 
     def chooseAction(self, pi, values, tau):
-        if tau == 0:
+        """if tau == 0:
             actions = np.argwhere(pi == max(pi))    # same as np.transpose(np.nonzero(a))
 
             action = random.choice(actions)[0]
-        else:
-            action_idx = np.random.multinomial(1, pi)
+        else:"""
+        action_idx = np.random.multinomial(1, pi)
 
-            action = np.where(action_idx == 1)[0][0]
+        action = np.where(action_idx == 1)[0][0]
 
         value = values[action]
 

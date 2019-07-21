@@ -23,6 +23,11 @@ class Memory:
 			self.ltmemory.append(i)
 		self.clear_stmemory()
 
+	def extension(self, new_max):
+		temp_deque = deque(maxlen=new_max)
+		temp_deque.extend(self.ltmemory)
+		self.ltmemory = temp_deque
+
 	def clear_stmemory(self):
 		self.stmemory = deque(maxlen=config.MEMORY_SIZE)
 		

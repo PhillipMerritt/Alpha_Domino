@@ -206,7 +206,7 @@ while 1:
     ######## SELF PLAY ########
     print('SELF PLAYING ' + str(config.EPISODES) + ' EPISODES...')
     _, memories, _ = playMatches(best_players, config.EPISODES, lg.logger_main,
-                                  turns_until_tau0=config.TURNS_UNTIL_TAU0, memory=memories)
+                                  deterministic_play=False, memory=memories)
     print('\n')
     
     full_memory = True
@@ -253,7 +253,7 @@ while 1:
     if full_memory and config.MEMORY_SIZE < config.MAX_MEMORY_SIZE:
         config.MEMORY_SIZE += config.MEM_INCREMENT
         for memory in memories:
-            memory.maxlen = config.MEMORY_SIZE
+            memory.extension(config.MEMORY_SIZE)
 
     ######## TOURNAMENT ########
     print('TOURNAMENT...')
@@ -266,7 +266,7 @@ while 1:
     tourney_players = [best_players[0],current_player,best_players[1],current_player]
 
     scores, _, points = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
-                                               turns_until_tau0=0, memory=[None,None,None])
+                                               deterministic_play=True, memory=[None,None,None])
     print('\nSCORES')
     print(scores)
     print('\n\n')

@@ -11,7 +11,6 @@ MEMORY_SIZE = 500	# default was 30000 which would take 1500ish episodes to reach
 MIN_MEMORY_SIZE = 500 
 MEM_INCREMENT = 250
 MAX_MEMORY_SIZE = 30000
-TURNS_UNTIL_TAU0 = 15 # turn on which it starts playing deterministically
 CPUCT = 1
 EPSILON = 0.2
 ALPHA = 0.8
