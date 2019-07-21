@@ -15,22 +15,22 @@ class Game:
 
         hands, collections, passed, marks, tricks_won = self._generate_board()  # generate a new board
 
-        self.gameState = GameState(self.currentPlayer, hands, collections, -1, -1, passed, marks, tricks_won, -1, -1, 0)  # create a GameState
+        self.gameState = GameState(self.currentPlayer, hands, collections, -1, -1, passed, marks, tricks_won, -1, -1, -1)  # create a GameState
         # action space:
         # 20 for bids 30-42, 84, 168, 336, 672, 1344, 2688, pass
         # 28 for each domino
         # 9 for choosing trump suit (suits 0-6, doubles, follow me)
-        self.actionSpace = [np.zeros((20), dtype=np.int), np.zeros((28), dtype=np.int), np.zeros((9),dtype=np.int)]
-        self.grid_shape = (16, 28)  # I believe this was just used for printing the conect 4
-        self.input_shape = (16, 28)  # input shape for the neural network is ____
+        self.actionSpace = [np.zeros((28), dtype=np.int), np.zeros((9),dtype=np.int)]
+        self.grid_shape = (15, 28)  # I believe this was just used for printing the conect 4
+        self.input_shape = (15, 28)  # input shape for the neural network is ____
         self.name = 'Texas_42'
         self.state_size = len(self.gameState.binary)  # size of the entire game state
-        self.action_size = [len(self.actionSpace[0]),len(self.actionSpace[1]),len(self.actionSpace[2])]  # size of the actionSpace
+        self.action_size = [len(space) for space in self.actionSpace]  # size of the actionSpace
 
     def reset(self):  # sets player to 1 and generates a new board and gamestate
         hands, collections, passed, marks, tricks_won = self._generate_board()
 
-        self.gameState = GameState(self.currentPlayer, hands, collections, -1, -1, passed, marks, tricks_won, -1, -1, 0)
+        self.gameState = GameState(self.currentPlayer, hands, collections, -1, -1, passed, marks, tricks_won, -1, -1, -1)
 
         return self.gameState
 
@@ -131,33 +131,7 @@ class GameState():
 
     def _allowedActions(self):
         # The player holding the 0-1 tile bids first. Each player may either bid or pass. Each bid must be a number from 30 to 42, and must raise the previous bid. If the bid is maxed out (42), it may be doubled (84), and then doubled again (168). Bids of 42 or greater are made only my taking all 42 points.
-        #
-        # If no one bids, the tiles are reshuffled and dealt again.
-        if self.decision_type == 0: # bidding phase
-            actions = [0]  # 0 will represent passing instead of raising the bid and will always be available
-
-            # all bids represented as actions will be 0-16 so they will have 30 subtracted for the non doubled bids
-            if not self.passed[self.playerTurn]: # if this player hasn't passed
-                if self.high_bid == -1:   # if no one has bid yet this player can bid anywhere from 30-84 and pass
-                    for i in range(1, 14):
-                        actions.append(i)
-                    actions.append(14)
-                elif self.high_bid < 42:   # if the bid is below 42 they can be anywhere from the highest bid + 1 to 42
-                    for i in range(self.high_bid + 1, 43):
-                        actions.append(i - 29)
-                    actions.append(14)
-                elif self.high_bid == 84: # if the highest bid is 42 they can bid 84
-                    actions.append(15)
-                elif self.high_bid == 168:   # if it is 84 they can bid 164
-                    actions.append(16)
-                elif self.high_bid == 336:
-                    actions.append(17)
-                elif self.high_bid == 672:
-                    actions.append(18)
-                elif self.high_bid == 1344:
-                    actions.append(19)
-
-        elif self.decision_type == 1: # a domino is to be played
+        if self.decision_type == 0: # a domino is to be played
             actions = []
             
             if self.f_m_suit == -1: # this player is setting the temp suit
@@ -170,8 +144,25 @@ class GameState():
 
                 if len(actions) == 0:  # no dominoes in hand matching follow suit so any domino can be played
                     actions = deepcopy(self.hands[self.playerTurn])
-        else:   # a pip or doubles is to be chosen as the trump suit alternatively the player can pass
+        elif self.decision_type == 1:   # a pip or doubles is to be chosen as the trump suit alternatively the player can pass
             actions = list(range(0,9)) # suits 0-6, doubles, follow me
+        else:   # bidding phase
+            actions = [0]   # default bid is passing unless raising the bid by 1 is allowed
+            dub_count = 0
+            for dom in self.hands[self.playerTurn]:         # count # of doubles
+                if dom in self.doubles:
+                    dub_count += 1
+
+            if self.high_bid < 30:                          # any player will start the bidding
+                actions = [1]
+            elif dub_count < 2 and self.high_bid < 32:      # players with less than 2 doubles can bid up to 32
+                actions = [1]
+            elif dub_count == 2 and self.high_bid < 35:     # 2 doubles can bid up to 35
+                actions = [1]
+            elif dub_count == 3 and self.high_bid < 42:     # 3 doubles can bid up to 42
+                actions = [1]
+            elif dub_count > 3 and self.high_bid < 42:      # more than 3 doubles can bid up to and including 42
+                actions = [1]
 
         actions = sorted(actions)
 
@@ -208,7 +199,7 @@ class GameState():
     def _binary(self):  # converts the state to a 16x28 binary representation
                         # turn sequence is current player, their teammate, then their two opponents
     # hands in turn sequence, collections in turn sequence, bids in turn sequence,board, played domino (for trump suit choosing), trump suit
-        position = np.zeros((16, 28), dtype=np.int)
+        position = np.zeros((15, 28), dtype=np.int)
 
         turn_sequence = [self.playerTurn, (self.playerTurn + 2) % 4,(self.playerTurn + 1) % 4, (self.playerTurn + 3) % 4]
 
@@ -236,19 +227,15 @@ class GameState():
         for i,c in enumerate(bin_bid):
             position[9][i] = int(c)
 
-        for i,turn in enumerate(turn_sequence):
-            if self.passed[turn]:
-                position[10][i] = 1   # set the element to 1 if this player has passed
-
         for i,dom in enumerate(self.played_dominoes):
             if dom != -1:
-                position[i+11][dom] = 1
+                position[i+10][dom] = 1
 
         if self.trump_suit != -1:
             if self.trump_suit == 7 or self.trump_suit == 8:
-                position[15][self.trump_suit] = 1
+                position[14][self.trump_suit] = 1
             else:
-                position[15][self.doubles[self.trump_suit]] = 1
+                position[14][self.doubles[self.trump_suit]] = 1
 
         return (position)
 
@@ -297,16 +284,8 @@ class GameState():
 
         id += '|' + str(self.trump_suit)
 
-        if self.decision_type == 0:
-            for tf in self.passed:
-                if tf:
-                    id += '|T'
-                else:
-                    id += '|F'
-        else:
-            for turn in turn_sequence:  # played domino for this trick for each player
-                id += '|' + str(self.played_dominoes[turn])
-
+        for turn in turn_sequence:  # played domino for this trick for each player
+            id += '|' + str(self.played_dominoes[turn])
 
         return id
 
@@ -411,50 +390,17 @@ class GameState():
     def takeAction(self, action):
         if action not in self.allowedActions:
             print("Illegal Action!")
-
+            print(self.decision_type)
+            print(self.playerTurn)
+            print(self.hands)
+            print(self.marks)
+            print(self.collections)
+            print(self.tricks_won)
+            print(self.high_bid)
+        
         new_hands = [[], [], [], []]
 
-        if self.decision_type == 0: # bid action
-            new_hands = deepcopy(self.hands)
-            new_high_bid = self.high_bid
-            new_passed = deepcopy(self.passed)
-            next_player = (self.playerTurn + 1) % 4
-            highest_bidder = self.highest_bidder
-
-            if action == 18:
-                new_high_bid = self.possible_bids[action]
-                highest_bidder = self.playerTurn
-                next_player = highest_bidder
-                new_passed = [True,True,True,True]
-            elif action != 0:
-                new_high_bid = self.possible_bids[action]
-                highest_bidder = self.playerTurn
-            else:
-                new_passed[self.playerTurn] = True
-
-            if False not in new_passed:
-                scrap_hand = True
-                if self.high_bid > 0:
-                    scrap_hand = False
-
-                if scrap_hand:
-                    next_d_type = 0
-                    new_hands = self.deal_hands()
-                    new_passed = [False,False,False,False]
-                else:
-                    next_d_type = 2
-                    next_player = highest_bidder
-                    highest_bidder = highest_bidder % 2 # changed to team index rather than player after bidding phase
-            else:
-                next_d_type = 0
-                for i in range(1,5):
-                    if not new_passed[(self.playerTurn + i) % 4]:
-                        next_player = (self.playerTurn + i) % 4
-                        break
-
-            newState = GameState(next_player, new_hands, self.collections, new_high_bid, highest_bidder, new_passed, self.marks, self.tricks_won, self.trump_suit, self.f_m_suit,
-                         next_d_type)  # create new state
-        elif self.decision_type == 1:   # play domino action
+        if self.decision_type == 0:   # play domino action
             new_hands = deepcopy(self.hands)
             new_collections = deepcopy(self.collections)
 
@@ -507,18 +453,59 @@ class GameState():
                     new_collections = [[],[]]
                     new_tricks_won = [0,0]
                     new_hands = self.deal_hands()
-                    newState = GameState(winner, new_hands, new_collections, -1, -1, new_passed, new_marks, new_tricks_won, -1, -1, 0)
+                    newState = GameState(winner, new_hands, new_collections, -1, -1, new_passed, new_marks, new_tricks_won, -1, -1, -1)
                 else:
                     newState = GameState(winner, new_hands, new_collections, self.high_bid, self.highest_bidder,
-                                         self.passed, self.marks, new_tricks_won, self.trump_suit, -1, 1)
+                                         self.passed, self.marks, new_tricks_won, self.trump_suit, -1, 0)
             else:
                 newState = GameState((self.playerTurn+1)%4, new_hands, new_collections, self.high_bid, self.highest_bidder,
-                                     self.passed, self.marks, self.tricks_won, self.trump_suit, new_f_m, 1, new_played)
-        else:
+                                     self.passed, self.marks, self.tricks_won, self.trump_suit, new_f_m, 0, new_played)
+        elif self.decision_type == 1:
             new_suit = action
 
             newState = GameState(self.playerTurn, self.hands, self.collections, self.high_bid, self.highest_bidder,
-                                 self.passed, self.marks, self.tricks_won, new_suit, -1, 1)
+                                 self.passed, self.marks, self.tricks_won, new_suit, -1, 0)
+        else:   # bid action
+            new_hands = deepcopy(self.hands)
+            new_high_bid = self.high_bid
+            new_passed = deepcopy(self.passed)
+            next_player = (self.playerTurn + 1) % 4
+            highest_bidder = self.highest_bidder
+            
+            if action == 0:
+                new_passed[self.playerTurn] = True
+            elif self.high_bid < 30:
+                new_high_bid = 30
+                highest_bidder = self.playerTurn
+                next_player = highest_bidder
+            else:
+                new_high_bid = self.high_bid + 1
+                highest_bidder = self.playerTurn
+                next_player = highest_bidder
+
+                if new_high_bid == 42:
+                    new_passed = [True,True,True,True]
+
+            pass_count = 0
+            for p in self.passed:
+                if p:
+                    pass_count += 1
+
+            if pass_count == 3:
+                new_passed[self.playerTurn] = True
+                next_d_type = 1
+                next_player = highest_bidder
+                highest_bidder = highest_bidder % 2 # changed to team index rather than player after bidding phase
+            else:
+                next_d_type = -1
+                for i in range(1,5):
+                    if not new_passed[(self.playerTurn + i) % 4]:
+                        next_player = (self.playerTurn + i) % 4
+                        break
+
+            newState = GameState(next_player, new_hands, self.collections, new_high_bid, highest_bidder, new_passed, self.marks, self.tricks_won, self.trump_suit, self.f_m_suit,
+                         next_d_type)  # create new state
+
         value = newState.value
         done = 0
 
@@ -533,10 +520,10 @@ class GameState():
 
         logger.info('--------------')
         logger.info("Current Turn: {0} | DECISION TYPE: {1}".format(self.playerTurn, self.decision_type))
-        if self.decision_type == 0:
+        if self.decision_type == -1:
             logger.info("Available Actions: {0}".format(self.allowedActions))
 
-        elif self.decision_type == 1:
+        elif self.decision_type == 0:
             temp_hand = []
 
             for index in self.allowedActions:
@@ -560,7 +547,7 @@ class GameState():
 
         logger.info("Team 1 Collection: {0} | Team 2 Collection: {1}".format(temp_hand,temp_hand_2))
 
-        if self.decision_type == 0:
+        if self.decision_type == -1:
             logger.info("Passed: {0}".format(self.passed))
 
         for i,turn in enumerate(turn_sequence):
@@ -614,7 +601,7 @@ class GameState():
 
         print("Team 1 Collection: {0} | Team 2 Collection: {1}".format(temp_hand, temp_hand_2))
 
-        if self.decision_type == 0:
+        if self.decision_type == -1:
             print("Passed: {0}".format(self.passed))
 
         for i, turn in enumerate(turn_sequence):
@@ -647,9 +634,9 @@ class GameState():
                     print("Team 2 Played Dominoes:")
 
                 print("Player {0}: {1}".format(turn, self.all_domino[self.played_dominoes[turn]]))
-        if self.decision_type == 0:
+        if self.decision_type == -1:
             print("Available Actions: {0}".format(self.allowedActions))
-        elif self.decision_type == 1:
+        elif self.decision_type == 0:
             temp_hand = []
 
             for index in self.allowedActions:

@@ -15,7 +15,7 @@ play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
 
 ############ Set debugging to true to delete the log folders every time you run the program
-debugging = False
+debugging = True
 
 if debugging:
     exists = os.path.isfile(settings.run_folder + 'logs/logger_main.log')
