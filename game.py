@@ -290,16 +290,16 @@ class GameState():
         return id
 
     def _checkForEndGame(self):  # returns 1 if the last player played their last domino or if the current player has no possible plays otherwise returns 0
-        if max(self.marks) >= 7:
+        if max(self.marks) >= 1:
             return 1
 
         return 0
 
     def _getValue(self):
          # This is the value of the state
-        if self.marks[0] >= 7:
+        if self.marks[0] >= 1:
             return [1,-1]
-        elif self.marks[1] >= 7:
+        elif self.marks[1] >= 1:
             return [-1, 1]
         else:
             return [0,0]
