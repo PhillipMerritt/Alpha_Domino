@@ -368,12 +368,12 @@ class GameState():
 
     # finds out the winner of the trick and adds the honors of the trick to that team's collection
     def trick_score(self, played_dominoes):
-        heaviest = self.played_dominoes[0]              # tracks heaviest domino played
+        heaviest = played_dominoes[0]              # tracks heaviest domino played
         winning_player = 0
         new_collections = deepcopy(self.collections)    # copy of collections to add honors too
 
         for i in [1,2,3]:   # continually replace heaviest domino w/ heavier dominoes by comparing with compare_doms()
-            if self.compare_doms(heaviest,self.played_dominoes[i]):
+            if self.compare_doms(heaviest,played_dominoes[i]):
                 heaviest = self.played_dominoes[i]
                 winning_player = i
 
@@ -638,7 +638,10 @@ class GameState():
                 elif i == 2:
                     print("Team 2 Played Dominoes:")
 
-                print("Player {0}: {1}".format(turn, self.all_domino[self.played_dominoes[turn]]))
+                if self.played_dominoes[turn] != -1:
+                    print("Player {0}: {1}".format(turn, self.all_domino[self.played_dominoes[turn]]))
+                else:
+                    print("Player {0}: None".format(turn))
         if self.decision_type == -1:
             print("Available Actions: {0}".format(self.allowedActions))
         elif self.decision_type == 0:
