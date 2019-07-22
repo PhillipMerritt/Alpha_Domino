@@ -12,7 +12,7 @@ import settings
 import os
 
 play_vs_self = False    # set this to true to take control of all 4 players
-play_vs_agent = False   # set this to true to play against a trained
+play_vs_agent = True   # set this to true to play against a trained
 
 ############ Set debugging to true to delete the log folders every time you run the program
 debugging = False
@@ -138,10 +138,10 @@ for i in range(DECISION_TYPES):
 best_player_version = []
 # If loading an existing neural netwrok, set the weights from that model
 if initialise.INITIAL_MODEL_VERSION != [None] * DECISION_TYPES:
-    for i, MODEL_VERSION in enumerate(initialise.INITIAL_MODEL_VERSION):
-        best_player_version.append(initialise.INITIAL_MODEL_VERSION)
-        print('LOADING MODEL VERSION ' + str(initialise.INITIAL_MODEL_VERSION) + '...')
-        m_tmp = best_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, best_player_version)
+    for i, version in enumerate(initialise.INITIAL_MODEL_VERSION):
+        best_player_version.append(version)
+        print('LOADING MODEL VERSION ' + str(version) + '...')
+        m_tmp = best_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, version)
         current_NN[i].model.set_weights(m_tmp.get_weights())
         best_NN[i].model.set_weights(m_tmp.get_weights())
 # otherwise just ensure the weights on the two players are the same

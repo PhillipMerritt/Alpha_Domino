@@ -58,7 +58,7 @@ class Game:
         return hands, collections, passed, marks, tricks_won
 
     # once an action has been chosen this function is called and it keeps making actions until their is a choice to be made
-    def step(self, action, logger):  # game state makes the chosen action and returns the next state, the value of the next state for the active player in that state, and whether or not the game is over
+    def step(self, action, logger, user=False):  # game state makes the chosen action and returns the next state, the value of the next state for the active player in that state, and whether or not the game is over
         while 1:
             next_state, value, done = self.gameState.takeAction(
                 action)  # value is always 0 unless the game is over. Otherwise it is -1 since the last player made a winning move
@@ -72,6 +72,9 @@ class Game:
                 break
             elif len(self.gameState.allowedActions) == 1:  # else takeAction() with the one action available
                 action = self.gameState.allowedActions[0]
+
+                if user:                        # if a user is playing print the automated turn
+                    self.gameState.user_print()
             else:  # or if no actions are available pass turn by taking action -1
                 print("No available actions!")
 
@@ -93,6 +96,15 @@ class GameState():
         self.doubles = [0, 2, 5, 9, 14, 20, 27]
         self.honors = {8:5,11:5,15:5,20:10,25:10}
         self.doms_in_suits = {0:[0],1:[1,2],2:[3,4,5],3:[6,7,8,9],4:[10,11,12,13,14],5:[15,16,17,18,19,20],6:[21,22,23,24,25,26,27,28],7:[0, 2, 5, 9, 14, 20, 27]}
+        # when evaluating a domino if you input the suit as the index to dom_rank and the index identity of the domino as the key (second index)
+        # you will get the ranking of that domino in that suit (1-7, 7 being the highest rank)
+        # ex. comparing (1,4) to (3:4)
+        # ranking of (1,4) = dom_rank[4][11] which gives 1
+        # ranking of (4,4) = dom_rank[4][14] which gives 7
+        # (4,4) > (1,4)
+        # each suit also includes dominoes that would normally be in other suits unless the lower pip value is the trump suit
+        self.dom_rank = [{0:7,1:1,3:2,6:3,10:4,15:5,21:6},{1:7,2:1,4:2,7:3,11:4,16:5,22:6},{3:7,4:1,5:2,8:3,12:4,17:5,23:6},{6:7,7:1,8:2,9:3,13:4,18:5,24:6}
+                        ,{10:7,11:1,12:2,13:3,14:4,19:5,25:6},{15:7,16:1,17:2,18:3,19:4,20:5,26:6},{21:7,22:1,23:2,24:3,25:4,26:5,27:6},{0:1, 2:2, 5:3, 9:4, 14:5, 20:6, 27:7}]
         self.possible_bids = [0]
         self.possible_bids.extend(list(range(30,43)))
         self.possible_bids.extend([84,168,336,672,1344,2688])
@@ -105,7 +117,7 @@ class GameState():
         self.marks = marks
 
         self.trump_suit = trump_suit    # 0, 1, 2, 3, 4, 5, 6, 7, 8 (7 = doubles) (8 = follow me)
-        self.f_m_suit = f_m_suit
+        self.fm_suit = f_m_suit
 
         self.passed = passed
         self.high_bid = high_bid
@@ -134,16 +146,24 @@ class GameState():
         if self.decision_type == 0: # a domino is to be played
             actions = []
             
-            if self.f_m_suit == -1: # this player is setting the temp suit
+            if self.fm_suit == -1: # this player is setting the f_m suit
                 actions = deepcopy(self.hands[self.playerTurn])
-            else:
-                for dom in self.hands[self.playerTurn]:
-                    pip_tuple = self.all_domino[dom]
-                    if self.f_m_suit in pip_tuple:
+            else:   # else this is a following player
+                for dom in self.hands[self.playerTurn]: # dominoes that are in the follow suit are available actions
+                    pip_tuple = self.all_domino[dom]    # the heavier pip determines the suit of a domino unless the trump_suit is in the domino
+                    suit = -1
+
+                    if self.trump_suit in pip_tuple:
+                        suit = self.trump_suit
+                    else:
+                        suit = max(pip_tuple)
+
+                    if suit == self.fm_suit:
                         actions.append(dom)
 
-                if len(actions) == 0:  # no dominoes in hand matching follow suit so any domino can be played
+                if len(actions) == 0:  # if no available dominoes in the follow suit then any in hand can be played
                     actions = deepcopy(self.hands[self.playerTurn])
+
         elif self.decision_type == 1:   # a pip or doubles is to be chosen as the trump suit alternatively the player can pass
             actions = list(range(0,9)) # suits 0-6, doubles, follow me
         else:   # bidding phase
@@ -194,7 +214,7 @@ class GameState():
                 new_hands[i] = sorted(hand)
 
         return GameState(self.playerTurn, new_hands, self.collections, self.high_bid, self.highest_bidder, self.passed, self.marks,
-                         self.tricks_won, self.trump_suit, self.f_m_suit, self.decision_type, self.played_dominoes)
+                         self.tricks_won, self.trump_suit, self.fm_suit, self.decision_type, self.played_dominoes)
 
     def _binary(self):  # converts the state to a 16x28 binary representation
                         # turn sequence is current player, their teammate, then their two opponents
@@ -319,53 +339,42 @@ class GameState():
 
         return hands
 
+    # returns the suit of a domino and a bool indicating if it is a trump 
+    # suit can be 0-6 or 7 if it is a double and doubles are the trump suit
+    def get_suit(self, dom):
+        pip_tuple = self.all_domino[dom]
+
+        if self.trump_suit == 7 and pip_tuple[0] == pip_tuple[1]:   # return 7 if trump suit is doubles and the dom is a double
+            return 7, True
+        elif self.trump_suit in pip_tuple:  # return the trump suit if the dom contains it
+            return self.trump_suit, True
+        else:                               # else return the greater pip value
+            return max(pip_tuple), False
+
     # compares two dominoes and returns true if dom_b is heavier than domino
     def compare_doms(self, dom_a, dom_b):
-        if self.trump_suit == 7 and dom_a[0] == dom_a[1]: # if the trump suit is doubles and this dom is a double
-            dom_weight_a = 17   # highest possible weight
-        elif self.trump_suit in dom_a:  # if the dom is in the trump suit
-            if dom_a[0] == self.trump_suit: # make the  opposite pip from the trump suit pip the domino's weight + 10
-                dom_weight_a = dom_a[1] + 10
-            else:
-                dom_weight_a = dom_a[0] + 10
-        else:   # if it isn't in the trump suit store it's weight
-            if self.f_m_suit in dom_a and dom_a[0] == dom_a[0]:
-                dom_weight_a = 7    # highest possible non-trump weight
-            elif dom_a[0] == self.f_m_suit:
-                dom_weight_a = dom_a[1]
-            elif dom_a[1] == self.f_m_suit:
-                dom_weight_a = dom_a[0]
-            else:   # if the domino isn't in either suit then it's value is 0
-                dom_weight_a = 0
+        suit_a, trump_a = self.get_suit(dom_a)
+        suit_b, _ = self.get_suit(dom_b)
 
-        if self.trump_suit == 7 and dom_b[0] == dom_b[1]:  # if the trump suit is doubles and this dom is a double
-            dom_weight_b = 17  # highest possible weight
-        elif self.trump_suit in dom_b:  # if the dom is in the trump suit
-            if dom_b[0] == self.trump_suit:  # make the  opposite pip from the trump suit pip the domino's weight + 10
-                dom_weight_b = dom_b[1] + 10
-            else:
-                dom_weight_b = dom_b[0] + 10
-        else:  # if it isn't in the trump suit store it's weight
-            if self.f_m_suit in dom_b and dom_b[0] == dom_b[0]:
-                dom_weight_b = 7  # highest possible non-trump weight
-            elif dom_b[0] == self.f_m_suit:
-                dom_weight_b = dom_b[1]
-            elif dom_b[1] == self.f_m_suit:
-                dom_weight_b = dom_b[0]
-            else:  # if the domino isn't in either suit then it's value is 0
-                dom_weight_b = 0
-
-        return dom_weight_a < dom_weight_b
+        if suit_a == suit_b:    # if they are in the same suit
+            rank_a = self.dom_rank[suit_a][dom_a]
+            rank_b = self.dom_rank[suit_b][dom_b]
+            
+            return rank_a < rank_b  # return True if b is heavier than a
+        elif trump_a:
+            return False    # return false if only dom_a is in the trump suit
+        else:
+            return True     # else return false (only dom_b is in the trump suit or neither are and it doesn't matter)
 
     # finds out the winner of the trick and adds the honors of the trick to that team's collection
     def trick_score(self, played_dominoes):
-        heaviest = self.all_domino[self.played_dominoes[0]]              # tracks heaviest domino played
+        heaviest = self.played_dominoes[0]              # tracks heaviest domino played
         winning_player = 0
         new_collections = deepcopy(self.collections)    # copy of collections to add honors too
 
-        for i in range(1,4):
-            if self.compare_doms(heaviest,self.all_domino[self.played_dominoes[i]]):
-                heaviest = self.all_domino[self.played_dominoes[i]]
+        for i in [1,2,3]:   # continually replace heaviest domino w/ heavier dominoes by comparing with compare_doms()
+            if self.compare_doms(heaviest,self.played_dominoes[i]):
+                heaviest = self.played_dominoes[i]
                 winning_player = i
 
         winning_team = winning_player % 2
@@ -390,40 +399,35 @@ class GameState():
     def takeAction(self, action):
         if action not in self.allowedActions:
             print("Illegal Action!")
-            print(self.decision_type)
-            print(self.playerTurn)
-            print(self.hands)
-            print(self.marks)
-            print(self.collections)
-            print(self.tricks_won)
-            print(self.high_bid)
         
         new_hands = [[], [], [], []]
 
         if self.decision_type == 0:   # play domino action
-            new_hands = deepcopy(self.hands)
+            new_hands = deepcopy(self.hands)            
             new_collections = deepcopy(self.collections)
 
-            new_hands[self.playerTurn].remove(action)
+            new_hands[self.playerTurn].remove(action)   # remove played dom from hand
 
             new_played = deepcopy(self.played_dominoes)
-            new_played[self.playerTurn] = action
+            new_played[self.playerTurn] = action        # add played dom to played_dominoes
 
-            if self.f_m_suit == -1:
-                new_f_m = max(self.all_domino[action])
+            if self.fm_suit == -1:                      # if this is the leading dom set the fm_suit
+                new_f_m, _ = self.get_suit(action)
             else:
-                new_f_m = self.f_m_suit
+                new_f_m = self.fm_suit
 
 
             if -1 not in new_played:    # trick is over
-                new_tricks_won, new_collections, winner = self.trick_score(new_played)
-                added_points = self.score_collections(new_collections)
-                added_points[0] += new_tricks_won[0]
+                new_tricks_won, new_collections, winner = self.trick_score(new_played)  # score trick to get new trick win count, collections and winner
+                added_points = self.score_collections(new_collections)  # score collections
+                added_points[0] += new_tricks_won[0]    # add 1 point for each trick won to each team's points
                 added_points[1] += new_tricks_won[1]
                 new_marks = deepcopy(self.marks)
                 hand_complete = False
 
-                if self.high_bid >= 42:
+                # points_to_win is how many points the bidding team needs to win the mark(s)
+                # and points_to_block is how much the other team needs to prevent this
+                if self.high_bid >= 42: 
                     points_to_win = 42
                     points_to_block = 1
                 else:
@@ -434,7 +438,7 @@ class GameState():
                 if (self.highest_bidder == 0 and added_points[0] >= points_to_win) or (self.highest_bidder == 1 and added_points[0] >= points_to_block):
                     hand_complete = True
 
-                    # team 0 wins the marks
+                    # team 0 wins the mark(s)
                     if self.high_bid <= 42:
                         new_marks[0] += 1
                     else:
@@ -443,6 +447,7 @@ class GameState():
                 elif (self.highest_bidder == 1 and added_points[1] >= points_to_win) or (self.highest_bidder == 0 and added_points[1] >= points_to_block):
                     hand_complete = True
 
+                    # team 1 wins the mark(s)
                     if self.high_bid <= 42:
                         new_marks[1] += 1
                     else:
@@ -460,50 +465,50 @@ class GameState():
             else:
                 newState = GameState((self.playerTurn+1)%4, new_hands, new_collections, self.high_bid, self.highest_bidder,
                                      self.passed, self.marks, self.tricks_won, self.trump_suit, new_f_m, 0, new_played)
-        elif self.decision_type == 1:
-            new_suit = action
+        elif self.decision_type == 1:   # the player that won the bid chooses the trump suit for the hand
+            new_trump_suit = action
 
             newState = GameState(self.playerTurn, self.hands, self.collections, self.high_bid, self.highest_bidder,
-                                 self.passed, self.marks, self.tricks_won, new_suit, -1, 0)
-        else:   # bid action
-            new_hands = deepcopy(self.hands)
+                                 self.passed, self.marks, self.tricks_won, new_trump_suit, -1, 0)
+        else:   # bid action # TODO: Make bidding only only one bid from each player
+            new_hands = deepcopy(self.hands)    # make copies of needed info
             new_high_bid = self.high_bid
             new_passed = deepcopy(self.passed)
             next_player = (self.playerTurn + 1) % 4
             highest_bidder = self.highest_bidder
             
-            if action == 0:
+            if action == 0:                         # player passes 
                 new_passed[self.playerTurn] = True
-            elif self.high_bid < 30:
+            elif self.high_bid < 30:                # if this is the first bid start the bidding at 30
                 new_high_bid = 30
                 highest_bidder = self.playerTurn
                 next_player = highest_bidder
-            else:
+            else:                                   # else increment the bid by 1
                 new_high_bid = self.high_bid + 1
                 highest_bidder = self.playerTurn
                 next_player = highest_bidder
 
-                if new_high_bid == 42:
+                if new_high_bid == 42:              # if max bid is reached move onto decision type 1 (choosing trump suit)
                     new_passed = [True,True,True,True]
 
-            pass_count = 0
+            pass_count = 0              # count # of players who have passed
             for p in self.passed:
                 if p:
                     pass_count += 1
 
-            if pass_count >= 3:
+            if pass_count >= 3:         # if 3/4 players have passed
                 new_passed[self.playerTurn] = True
-                next_d_type = 1
-                next_player = highest_bidder
+                next_d_type = 1                     # move onto deciding the trump suit
+                next_player = highest_bidder        # next player will be the winning bidder
                 highest_bidder = highest_bidder % 2 # changed to team index rather than player after bidding phase
-            else:
+            else:                       # else continue bidding
                 next_d_type = -1
                 for i in range(1,5):
                     if not new_passed[(self.playerTurn + i) % 4]:
                         next_player = (self.playerTurn + i) % 4
                         break
 
-            newState = GameState(next_player, new_hands, self.collections, new_high_bid, highest_bidder, new_passed, self.marks, self.tricks_won, self.trump_suit, self.f_m_suit,
+            newState = GameState(next_player, new_hands, self.collections, new_high_bid, highest_bidder, new_passed, self.marks, self.tricks_won, self.trump_suit, self.fm_suit,
                          next_d_type)  # create new state
 
         value = newState.value
@@ -570,7 +575,7 @@ class GameState():
 
         if self.decision_type != 0:
             logger.info("Trump Suit: {0}".format(self.trump_suit))
-            logger.info("FM Suit: {0}".format(self.f_m_suit))
+            logger.info("FM Suit: {0}".format(self.fm_suit))
 
             for i, turn in enumerate(turn_sequence):
                 if i == 0:
@@ -622,9 +627,9 @@ class GameState():
         if self.high_bid > 0:
             print("Highest Bidder: {0} Highest Bid: {1}".format(self.highest_bidder, self.high_bid))
 
-        if self.decision_type != 0:
+        if self.decision_type != -1:
             print("Trump Suit: {0}".format(self.trump_suit))
-            print("FM Suit: {0}".format(self.f_m_suit))
+            print("FM Suit: {0}".format(self.fm_suit))
 
 
             for i, turn in enumerate(turn_sequence):
