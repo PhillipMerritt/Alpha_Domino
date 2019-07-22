@@ -103,7 +103,10 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
             ### Do the action
             turn = state.playerTurn
 
-            state, value, done, _ = env.step(action, logger) # the value is [1,-1] if team/player 0 won or the opposite if team/player 1 won otherwise it's [0,0]
+            if players[state.playerTurn]['name'] == 'user':
+                state, value, done, _ = env.step(action, logger, True)  # this parameter tells the gameState to print out automated turns for the user's convenience
+            else:
+                state, value, done, _ = env.step(action, logger) # the value is [1,-1] if team/player 0 won or the opposite if team/player 1 won otherwise it's [0,0]
             
             #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
 
