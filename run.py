@@ -15,7 +15,7 @@ play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
 
 ############ Set debugging to true to delete the log folders every time you run the program
-debugging = True
+debugging = False
 
 if debugging:
     exists = os.path.isfile(settings.run_folder + 'logs/logger_main.log')
@@ -270,16 +270,25 @@ while 1:
         # so instead I made an list of players where two randomly sampled best_players are across from eachother
         # and 2 copies of the current player are across from each other
         #best_players = np.random.shuffle(best_players)
+        if iteration < 5:
+            matches = 3
+        elif iteration < 10:
+            matches = 5
+        elif iteration < 20:
+            matches = 7
+        else:
+            matches = 9
+
         tourney_players = [best_players[0],current_player,best_players[1],current_player]
 
-        scores, _, points = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
+        scores, _, points = playMatches(tourney_players, matches, lg.logger_tourney,
                                                 deterministic_play=True, memory=[None,None,None])
         print('\nSCORES')
         print(scores)
         print('\n\n')
 
         # if the current player is significantly better than the best_player replace the best player
-        if scores['current_player'] > scores['best_player'] * config.SCORING_THRESHOLD:
+        if scores['current_player'] > scores['best_player']:
             for i in range(DECISION_TYPES):
                 best_player_version[i] = best_player_version[i] + 1
                 best_NN[i].model.set_weights(current_NN[i].model.get_weights())

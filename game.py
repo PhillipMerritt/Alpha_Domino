@@ -15,7 +15,7 @@ class Game:
 
         hands, collections, passed, marks, tricks_won = self._generate_board()  # generate a new board
 
-        self.gameState = GameState(self.currentPlayer, hands, collections, -1, -1, passed, marks, tricks_won, -1, -1, -1)  # create a GameState
+        self.gameState = GameState(np.random.random_integers(4) - 1, hands, collections, -1, -1, passed, marks, tricks_won, -1, -1, -1)  # create a GameState
         # action space:
         # 20 for bids 30-42, 84, 168, 336, 672, 1344, 2688, pass
         # 28 for each domino
@@ -30,7 +30,7 @@ class Game:
     def reset(self):  # sets player to 1 and generates a new board and gamestate
         hands, collections, passed, marks, tricks_won = self._generate_board()
 
-        self.gameState = GameState(self.currentPlayer, hands, collections, -1, -1, passed, marks, tricks_won, -1, -1, -1)
+        self.gameState = GameState(np.random.random_integers(4) - 1, hands, collections, -1, -1, passed, marks, tricks_won, -1, -1, -1)
 
         return self.gameState
 
@@ -491,7 +491,7 @@ class GameState():
                 if p:
                     pass_count += 1
 
-            if pass_count == 3:
+            if pass_count >= 3:
                 new_passed[self.playerTurn] = True
                 next_d_type = 1
                 next_player = highest_bidder
