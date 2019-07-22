@@ -138,10 +138,10 @@ for i in range(DECISION_TYPES):
 best_player_version = []
 # If loading an existing neural netwrok, set the weights from that model
 if initialise.INITIAL_MODEL_VERSION != [None] * DECISION_TYPES:
-    for i, MODEL_VERSION in enumerate(initialise.INITIAL_MODEL_VERSION):
-        best_player_version.append(initialise.INITIAL_MODEL_VERSION)
-        print('LOADING MODEL VERSION ' + str(initialise.INITIAL_MODEL_VERSION) + '...')
-        m_tmp = best_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, best_player_version)
+    for i, version in enumerate(initialise.INITIAL_MODEL_VERSION):
+        best_player_version.append(initialise.INITIAL_MODEL_VERSION[i])
+        print('LOADING MODEL VERSION ' + str(initialise.INITIAL_MODEL_VERSION[i]) + '...')
+        m_tmp = best_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, version)
         current_NN[i].model.set_weights(m_tmp.get_weights())
         best_NN[i].model.set_weights(m_tmp.get_weights())
 # otherwise just ensure the weights on the two players are the same
@@ -162,7 +162,11 @@ print('\n')
 
 current_player = Agent('current_player', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, current_NN)
 best_player = Agent('best_player', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, best_NN)
-iteration = 0
+
+if initialise.INITIAL_ITERATION != None:
+    iteration = initialise.INITIAL_ITERATION
+else:
+    iteration = 0
 
 
 if play_vs_self:
