@@ -37,11 +37,7 @@ class Gen_Model():
 		self.model.save(run_folder + 'models/version' + "{0:0>4}".format(version) + '-' + str(self.decision_type) + '.h5')
 
 	def read(self, game, run_number, version):
-<<<<<<< HEAD
-		return load_model(run_archive_folder + game + '/run' + str(run_number).zfill(4) + "/models/version" + "{0:0>4}".format(version) + '-' + str(self.decision_type) + '.h5', custom_objects={'softmax_cross_entropy_with_logits': softmax_cross_entropy_with_logits})
-=======
 		return load_model( run_archive_folder + game + '/run' + str(run_number).zfill(4) + "/models/version" + "{0:0>4}".format(version) + '-' + str(self.decision_type) + '.h5', custom_objects={'softmax_cross_entropy_with_logits': softmax_cross_entropy_with_logits})
->>>>>>> a30720733830cfc2add964dd06dc8c433af1bc0e
 
 	def printWeightAverages(self):
 		layers = self.model.layers

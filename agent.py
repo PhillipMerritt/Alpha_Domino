@@ -241,6 +241,8 @@ class Agent():
         print('\n')
         self.model[d_t].printWeightAverages()
 
+        print("Overall_Loss first -> latest: {0} -> {1}".format(self.train_overall_loss[d_t][0], self.train_overall_loss[d_t][-1]))
+
     def predict(self, inputToModel, batch_size=None):
         preds = self.model.predict(inputToModel,batch_size)
         return preds

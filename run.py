@@ -12,7 +12,7 @@ import settings
 import os
 
 play_vs_self = False    # set this to true to take control of all 4 players
-play_vs_agent = True   # set this to true to play against a trained
+play_vs_agent = False   # set this to true to play against a trained
 
 ############ Set debugging to true to delete the log folders every time you run the program
 debugging = False
@@ -115,7 +115,7 @@ memories = []
 
 if initialise.INITIAL_MEMORY_VERSION == [None] * DECISION_TYPES:
     for i in range(DECISION_TYPES):
-        memories.append(Memory(MEMORY_SIZE))
+        memories.append(Memory(MEMORY_SIZE[i]))
 else:
     for d_t, MEM_VERSION in enumerate(initialise.INITIAL_MEMORY_VERSION):
         print('LOADING MEMORY VERSION ' + str(MEM_VERSION) + '...')
@@ -139,13 +139,8 @@ best_player_version = []
 # If loading an existing neural netwrok, set the weights from that model
 if initialise.INITIAL_MODEL_VERSION != [None] * DECISION_TYPES:
     for i, version in enumerate(initialise.INITIAL_MODEL_VERSION):
-<<<<<<< HEAD
         best_player_version.append(initialise.INITIAL_MODEL_VERSION[i])
         print('LOADING MODEL VERSION ' + str(initialise.INITIAL_MODEL_VERSION[i]) + '...')
-=======
-        best_player_version.append(version)
-        print('LOADING MODEL VERSION ' + str(version) + '...')
->>>>>>> a30720733830cfc2add964dd06dc8c433af1bc0e
         m_tmp = best_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, version)
         current_NN[i].model.set_weights(m_tmp.get_weights())
         best_NN[i].model.set_weights(m_tmp.get_weights())
@@ -225,7 +220,7 @@ while 1:
     for d_t,memory in enumerate(memories):
         memory.clear_stmemory()
 
-        if len(memory.ltmemory) >= config.MIN_MEMORY_SIZE:
+        if len(memory.ltmemory) == MEMORY_SIZE[d_t]:
             trained = True
             ######## RETRAINING ########
             print('RETRAINING...')
@@ -256,19 +251,19 @@ while 1:
 
                 s['state'].render(lg.logger_memory)
             
-            if len(memory.ltmemory) < MEMORY_SIZE:
-                full_memory = False
-        else:
-            full_memory = False
+            #if len(memory.ltmemory) < MEMORY_SIZE[d_t]:
+                #full_memory = False
+        #else:
+            #full_memory = False
 
-    if full_memory and MEMORY_SIZE < config.MAX_MEMORY_SIZE:
+    """if full_memory and MEMORY_SIZE < config.MAX_MEMORY_SIZE:
         print("extending memory!")
 
         MEMORY_SIZE += config.MEM_INCREMENT
 
         print("new mem size: {0}".format(MEMORY_SIZE))
         for memory in memories:
-            memory.extension(MEMORY_SIZE)
+            memory.extension(MEMORY_SIZE)"""
     
     if trained:
         ######## TOURNAMENT ########
@@ -279,11 +274,11 @@ while 1:
         # so instead I made an list of players where two randomly sampled best_players are across from eachother
         # and 2 copies of the current player are across from each other
         #best_players = np.random.shuffle(best_players)
-        if iteration < 5:
+        if iteration < 20:
             matches = 3
-        elif iteration < 10:
+        elif iteration < 40:
             matches = 5
-        elif iteration < 20:
+        elif iteration < 80:
             matches = 7
         else:
             matches = 9

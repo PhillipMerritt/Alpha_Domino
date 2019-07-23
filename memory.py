@@ -6,9 +6,9 @@ from importlib import reload
 
 class Memory:
 	def __init__(self, MEMORY_SIZE):
-		self.MEMORY_SIZE = config.MEMORY_SIZE
-		self.ltmemory = deque(maxlen=config.MEMORY_SIZE)
-		self.stmemory = deque(maxlen=config.MEMORY_SIZE)
+		self.MEMORY_SIZE = MEMORY_SIZE
+		self.ltmemory = deque(maxlen=MEMORY_SIZE)
+		self.stmemory = deque(maxlen=MEMORY_SIZE)
 
 	def commit_stmemory(self, identities, state, actionValues):
 		for r in identities(state, actionValues):
