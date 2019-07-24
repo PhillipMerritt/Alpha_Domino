@@ -158,8 +158,8 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
         tk.predict_time = 0
 
         # if it is a tournament and if either player has won enough games to win break the loop
-        if memory == None and (scores['best_player'] == (EPISODES + 1) / 2 or scores['current_player'] == (EPISODES + 1) / 2):
-            break
+        #if memory == None and (scores['best_player'] == (EPISODES + 1) / 2 or scores['current_player'] == (EPISODES + 1) / 2):
+            #break
 
     print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
     return (scores, memory, points)

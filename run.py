@@ -13,6 +13,8 @@ import os
 
 play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
+all_version_tournament = False   # pit every model against every model below it
+version_testing = False # pit two models version against eachother 
 
 ############ Set debugging to true to delete the log folders every time you run the program
 debugging = False
@@ -51,11 +53,14 @@ from model import Residual_CNN
 from funcs import playMatches, playMatchesBetweenVersions
 
 import loggers as lg
+import logging
 
 from settings import run_folder, run_archive_folder
 import initialise
 import pickle
 
+import config
+from config import PLAYER_COUNT, DECISION_TYPES, MEMORY_SIZE
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -66,7 +71,74 @@ lg.logger_main.info('=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*')
 
 env = Game()
 
-version_testing = False
+# If loading an existing neural network, copy the config file to root
+if initialise.INITIAL_RUN_NUMBER != None:
+    copyfile(run_archive_folder + env.name + '/run' + str(initialise.INITIAL_RUN_NUMBER).zfill(4) + '/config.py',
+             './config.py')
+
+# plays every model version up to the value of high against every 5th version below it
+if all_version_tournament:
+    handler = logging.FileHandler(run_folder + 'logs/logger_all_version_tournament.log')
+
+    logger_all_version_tournament = logging.getLogger('logger_all_version_tournament')
+    logger_all_version_tournament.setLevel(logging.INFO)
+    if not logger_all_version_tournament.handlers:
+        logger_all_version_tournament.addHandler(handler)
+
+    logger_all_version_tournament.info("High\tLow\twin %")
+
+    
+    high_NN = []
+
+    # create an untrained neural network objects from the config file
+    for i in range(DECISION_TYPES):
+        high_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
+                                    config.HIDDEN_CNN_LAYERS, i))
+
+    high = 4
+    while high <= 169:
+        low = 0
+        # load high model
+        print('LOADING HIGH VERSION ' + str(high) + '...')
+        for i in range(DECISION_TYPES):
+            m_tmp = high_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, high)
+            high_NN[i].model.set_weights(m_tmp.get_weights())
+
+        # create high agent
+        high_agent = Agent('high_agent', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, high_NN)
+
+        while low < high:
+            # load low model
+            print('LOADING LOW VERSION ' + str(low) + '...')
+            if low == 0:
+                low_NN = []
+                for i in range(DECISION_TYPES):
+                    low_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
+                                        config.HIDDEN_CNN_LAYERS, i))
+            else:
+                for i in range(DECISION_TYPES):
+                    m_tmp = low_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, low)
+                    low_NN[i].model.set_weights(m_tmp.get_weights())
+
+            # create low agent
+            low_agent = Agent('low_agent', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, low_NN)
+
+            # create list of players for games
+            players = []
+            players.append(high_agent)
+            players.append(low_agent)
+            players.append(high_agent)
+            players.append(low_agent)
+
+            # play 100 games
+            scores, _, _ = playMatches(players,100,lg.logger_main,0)
+            win_perc = round(100 * (scores['high_agent'] / 100),2)
+            logger_all_version_tournament.info("{0}\t{1}\t{2}".format(high,low,win_perc))
+            print("{0} vs. {1}, high win %: {2}".format(high,low,win_perc))
+
+            low += 5
+        high += 5
+    exit(0)
 
 if version_testing:
     num_matches = 5
@@ -97,13 +169,7 @@ if version_testing:
 
 
 
-# If loading an existing neural network, copy the config file to root
-if initialise.INITIAL_RUN_NUMBER != None:
-    copyfile(run_archive_folder + env.name + '/run' + str(initialise.INITIAL_RUN_NUMBER).zfill(4) + '/config.py',
-             './config.py')
 
-import config
-from config import PLAYER_COUNT, DECISION_TYPES, MEMORY_SIZE
 
 ######## LOAD MEMORIES IF NECESSARY ########
 
