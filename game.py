@@ -367,17 +367,26 @@ class GameState():
             return False    # return false if only dom_a is in the trump suit
         else:
             return True     # else return false (only dom_b is in the trump suit or neither are and it doesn't matter)
+    
+    def weight_dom(self, dom):
+        suit, _ = self.get_suit(dom)
+        weight = self.dom_rank[suit][dom]
+
+        if suit == self.trump_suit:
+            weight *= 3
+        elif suit == self.fm_suit:
+            weight *= 2
+
+        return weight
 
     # finds out the winner of the trick and adds the honors of the trick to that team's collection
     def trick_score(self, played_dominoes):
-        heaviest = played_dominoes[0]              # tracks heaviest domino played
-        winning_player = 0
-        new_collections = deepcopy(self.collections)    # copy of collections to add honors too
+        new_collections = deepcopy(self.collections)
+        weights = []
+        for dom in played_dominoes:
+            weights.append(self.weight_dom(dom))
 
-        for i in [1,2,3]:   # continually replace heaviest domino w/ heavier dominoes by comparing with compare_doms()
-            if self.compare_doms(heaviest,played_dominoes[i]):
-                heaviest = played_dominoes[i]
-                winning_player = i
+        winning_player = np.argmax(weights)
 
         winning_team = winning_player % 2
 
@@ -527,10 +536,7 @@ class GameState():
 
         logger.info('--------------')
         logger.info("Current Turn: {0} | DECISION TYPE: {1}".format(self.playerTurn, self.decision_type))
-        if self.decision_type == -1:
-            logger.info("Available Actions: {0}".format(self.allowedActions))
-
-        elif self.decision_type == 0:
+        if self.decision_type == 0:
             temp_hand = []
 
             for index in self.allowedActions:
@@ -540,8 +546,8 @@ class GameState():
         else:
             logger.info("Available Actions: {0}".format(self.allowedActions))
 
-        logger.info("Current Marks: Team 1 = {0}/7, Team 2 = {1}/7".format(self.marks[0],self.marks[1]))
-        logger.info("Tricks Won: Team 1 = {0}/7, Team 2 = {1}/7".format(self.tricks_won[0],self.tricks_won[1]))
+        logger.info("Current Marks: Team 0 = {0}/7, Team 1 = {1}/7".format(self.marks[0],self.marks[1]))
+        logger.info("Tricks Won: Team 0 = {0}/7, Team 1 = {1}/7".format(self.tricks_won[0],self.tricks_won[1]))
 
         # logger.info("{0}".format())
         temp_hand = []
@@ -552,7 +558,7 @@ class GameState():
         for index in self.collections[1]:
             temp_hand_2.append(index)
 
-        logger.info("Team 1 Collection: {0} | Team 2 Collection: {1}".format(temp_hand,temp_hand_2))
+        logger.info("Team 0 Collection: {0} | Team 1 Collection: {1}".format(temp_hand,temp_hand_2))
 
         if self.decision_type == -1:
             logger.info("Passed: {0}".format(self.passed))
@@ -560,9 +566,9 @@ class GameState():
         for i,turn in enumerate(turn_sequence):
             temp_hand = []
             if i == 0:
-                logger.info("Team 1 Hands:")
+                logger.info("Team 0 Hands:")
             elif i == 2:
-                logger.info("Team 2 Hands:")
+                logger.info("Team 1 Hands:")
 
             for index in self.hands[turn]:
                 temp_hand.append(self.all_domino[index])
@@ -575,17 +581,21 @@ class GameState():
         if self.high_bid > 0:
             logger.info("Highest Bidder: {0} Highest Bid: {1}".format(self.highest_bidder,self.high_bid))
 
-        if self.decision_type != 0:
+        if self.decision_type != -1:
             logger.info("Trump Suit: {0}".format(self.trump_suit))
             logger.info("FM Suit: {0}".format(self.fm_suit))
 
             for i, turn in enumerate(turn_sequence):
                 if i == 0:
-                    logger.info("Team 1 Played Dominoes:")
+                    logger.info("Team 0 Played Dominoes:")
                 elif i == 2:
-                    logger.info("Team 2 Played Dominoes:")
+                    logger.info("Team 1 Played Dominoes:")
+                if self.played_dominoes[turn] == -1:
+                    dom = 'None'
+                else:
+                    dom = str(self.all_domino[self.played_dominoes[turn]])
 
-                logger.info("Player {0}: {1}".format(turn, self.all_domino[self.played_dominoes[turn]]))
+                logger.info("Player {0}: {1}".format(turn,dom))
 
         logger.info('--------------')
 
@@ -594,8 +604,8 @@ class GameState():
 
         print('--------------')
         print("Current Turn: {0} | DECISION TYPE: {1}".format(self.playerTurn, self.decision_type))
-        print("Current Marks: Team 1 = {0}/7, Team 2 = {1}/7".format(self.marks[0], self.marks[1]))
-        print("Tricks Won: Team 1 = {0}/7, Team 2 = {1}/7".format(self.tricks_won[0], self.tricks_won[1]))
+        print("Current Marks: Team 0 = {0}/7, Team 1 = {1}/7".format(self.marks[0], self.marks[1]))
+        print("Tricks Won: Team 0 = {0}/7, Team 1 = {1}/7".format(self.tricks_won[0], self.tricks_won[1]))
 
         # print("{0}".format())
         temp_hand = []
@@ -606,7 +616,7 @@ class GameState():
         for index in self.collections[1]:
             temp_hand_2.append(index)
 
-        print("Team 1 Collection: {0} | Team 2 Collection: {1}".format(temp_hand, temp_hand_2))
+        print("Team 0 Collection: {0} | Team 1 Collection: {1}".format(temp_hand, temp_hand_2))
 
         if self.decision_type == -1:
             print("Passed: {0}".format(self.passed))
@@ -614,9 +624,9 @@ class GameState():
         for i, turn in enumerate(turn_sequence):
             temp_hand = []
             if i == 0:
-                print("Team 1 Hands:")
+                print("Team 0 Hands:")
             elif i == 2:
-                print("Team 2 Hands:")
+                print("Team 1 Hands:")
 
             for index in self.hands[turn]:
                 temp_hand.append(self.all_domino[index])
@@ -636,9 +646,9 @@ class GameState():
 
             for i, turn in enumerate(turn_sequence):
                 if i == 0:
-                    print("Team 1 Played Dominoes:")
+                    print("Team 0 Played Dominoes:")
                 elif i == 2:
-                    print("Team 2 Played Dominoes:")
+                    print("Team 1 Played Dominoes:")
 
                 if self.played_dominoes[turn] != -1:
                     print("Player {0}: {1}".format(turn, self.all_domino[self.played_dominoes[turn]]))

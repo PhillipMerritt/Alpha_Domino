@@ -220,7 +220,7 @@ class Agent():
 
             fit = self.model[d_t].fit(training_states, training_targets, epochs=config.EPOCHS, verbose=1, validation_split=0,
                                  batch_size=32)
-            lg.logger_mcts.info('NEW LOSS %s', fit.history)
+            lg.logger_mcts.info('D_T {0}: NEW LOSS {1}'.format(d_t, fit.history))
 
             self.train_overall_loss[d_t].append(round(fit.history['loss'][config.EPOCHS - 1], 4))
             self.train_value_loss[d_t].append(round(fit.history['value_head_loss'][config.EPOCHS - 1], 4))
@@ -240,7 +240,7 @@ class Agent():
         print('\n')
         self.model[d_t].printWeightAverages()
 
-        print("Overall_Loss first -> latest: {0} -> {1}".format(self.train_overall_loss[d_t][0], self.train_overall_loss[d_t][-1]))
+        print("D_T {0}, Max = {1}, Min = {2}, latest = {3}".format(max(self.train_overall_loss[d_t]), min(self.train_overall_loss[d_t]), self.train_overall_loss[d_t][-1]))
 
     def predict(self, inputToModel, batch_size=None):
         preds = self.model.predict(inputToModel,batch_size)

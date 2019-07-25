@@ -55,7 +55,7 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
 
     if memory == None:
         games_to_win = (config.SCORING_THRESHOLD * EPISODES) / (1 + config.SCORING_THRESHOLD)
-        games_to_win = EPISODES - games_to_win
+        games_to_block = EPISODES - games_to_win
 
     for e in range(EPISODES):
 
@@ -67,6 +67,9 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
         print (str(e+1) + ' ', end='')
 
         state = env.reset()
+
+        if len(state.allowedActions) == 1:  # if things like bidding at the beginning only give one action go ahead and  automate those w/ env.step
+                state, _, _, _ = env.step(state.allowedActions[0], logger)
         
         done = 0
         players = {}
@@ -117,8 +120,11 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
             if done == 1:
                 if value[0] == 1:   # assuming there are no draws for now
                     winning_team = 0
-                else:
+                elif value[1] == 1:
                     winning_team = 1
+                else:
+                    print("value error")
+                    exit(0)
 
                 if memory != None:
                     #### If the game is finished, assign the values to the history of moves from the game
@@ -162,7 +168,7 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
         tk.predict_time = 0
 
         # if it is a tournament and if either player has won enough games to win break the loop
-        if memory == None and (scores['best_player'] > games_to_block or scores['current_player'] > games_to_win):
+        if players[1]['name'] == 'current_player' and (scores['best_player'] > games_to_block or scores['current_player'] > games_to_win):
             break
 
     print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
