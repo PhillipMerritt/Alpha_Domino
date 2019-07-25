@@ -72,8 +72,6 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
             player.mcts = None
             players[i] = {"agent": player, "name": player.name}
             points[i] = []
-            print(player.name)
-            
 
         env.gameState.render(logger)
         start_game = timer()

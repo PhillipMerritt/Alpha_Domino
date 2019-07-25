@@ -96,7 +96,7 @@ if all_version_tournament:
                                     config.HIDDEN_CNN_LAYERS, i))
 
     high = 0
-    matches = 400
+    matches = 100
     while high <= 169:
         low = 0
         # load high model
