@@ -13,7 +13,7 @@ import os
 
 play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
-all_version_tournament = False   # pit every model against every model below it
+all_version_tournament = True   # pit every model against every model below it
 version_testing = False # pit two models version against eachother 
 
 ############ Set debugging to true to delete the log folders every time you run the program
@@ -95,19 +95,21 @@ if all_version_tournament:
         high_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
                                     config.HIDDEN_CNN_LAYERS, i))
 
-    high = 4
+    high = 0
+    matches = 400
     while high <= 169:
         low = 0
         # load high model
         print('LOADING HIGH VERSION ' + str(high) + '...')
-        for i in range(DECISION_TYPES):
-            m_tmp = high_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, high)
-            high_NN[i].model.set_weights(m_tmp.get_weights())
+        if high != 0:
+            for i in range(DECISION_TYPES):
+                m_tmp = high_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, high)
+                high_NN[i].model.set_weights(m_tmp.get_weights())
 
         # create high agent
         high_agent = Agent('high_agent', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, high_NN)
 
-        while low < high:
+        while low <= high:
             # load low model
             print('LOADING LOW VERSION ' + str(low) + '...')
             if low == 0:
@@ -130,14 +132,14 @@ if all_version_tournament:
             players.append(high_agent)
             players.append(low_agent)
 
-            # play 100 games
-            scores, _, _ = playMatches(players,100,lg.logger_main,0)
-            win_perc = round(100 * (scores['high_agent'] / 100),2)
+            # play 50 games
+            scores, _, _ = playMatches(players,matches,lg.logger_main,0)
+            win_perc = round(100 * (scores['high_agent'] / matches),2)
             logger_all_version_tournament.info("{0}\t{1}\t{2}".format(high,low,win_perc))
             print("{0} vs. {1}, high win %: {2}".format(high,low,win_perc))
 
-            low += 5
-        high += 5
+            low += 10
+        high += 10
     exit(0)
 
 if version_testing:
