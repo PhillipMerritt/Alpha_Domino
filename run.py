@@ -354,7 +354,7 @@ while 1:
         tourney_players = [best_players[0],current_player,best_players[1],current_player]
 
         scores, _, points = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
-                                                deterministic_play=True, memory=[None,None,None])
+                                                deterministic_play=True)
         print('\nSCORES')
         print(scores)
         print('\n\n')

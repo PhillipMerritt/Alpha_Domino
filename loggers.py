@@ -7,7 +7,7 @@ from settings import run_folder
 
 LOGGER_DISABLED = {
 'main':True
-, 'memory':False
+, 'memory':True
 , 'tourney':True
 , 'mcts':True
 , 'model': True}

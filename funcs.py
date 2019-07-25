@@ -53,9 +53,8 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
     
     turns = 0
 
-    if memory == None:
-        games_to_win = (config.SCORING_THRESHOLD * EPISODES) / (1 + config.SCORING_THRESHOLD)
-        games_to_block = EPISODES - games_to_win
+    games_to_win = (config.SCORING_THRESHOLD * EPISODES) / (1 + config.SCORING_THRESHOLD)
+    games_to_block = EPISODES - games_to_win
 
     for e in range(EPISODES):
 
