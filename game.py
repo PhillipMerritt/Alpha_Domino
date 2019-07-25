@@ -357,10 +357,12 @@ class GameState():
         suit_b, _ = self.get_suit(dom_b)
 
         if suit_a == suit_b:    # if they are in the same suit
-            rank_a = self.dom_rank[suit_a][dom_a]
-            rank_b = self.dom_rank[suit_b][dom_b]
-            
-            return rank_a < rank_b  # return True if b is heavier than a
+            if dom_b in self.doubles: #if dom_b is a double and in same suit
+                return True
+            else:
+                rank_a = self.dom_rank[suit_a][dom_a]
+                rank_b = self.dom_rank[suit_b][dom_b]
+                return rank_a < rank_b  # return True if b is heavier than a
         elif trump_a:
             return False    # return false if only dom_a is in the trump suit
         else:
