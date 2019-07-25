@@ -373,9 +373,9 @@ class GameState():
         weight = self.dom_rank[suit][dom]
 
         if suit == self.trump_suit:
-            weight *= 3
+            weight += 20
         elif suit == self.fm_suit:
-            weight *= 2
+            weight += 10
 
         return weight
 

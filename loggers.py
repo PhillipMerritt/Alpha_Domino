@@ -6,10 +6,10 @@ from settings import run_folder
 ### WARNING: the mcts log file gets big quite quickly
 
 LOGGER_DISABLED = {
-'main':False
+'main':True
 , 'memory':False
 , 'tourney':True
-, 'mcts':False
+, 'mcts':True
 , 'model': True}
 
 

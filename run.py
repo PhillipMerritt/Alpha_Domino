@@ -13,7 +13,7 @@ import os
 
 play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
-all_version_tournament = True   # pit every model against every model below it
+all_version_tournament = False   # pit every model against every model below it
 version_testing = False # pit two models version against eachother 
 
 ############ Set debugging to true to delete the log folders every time you run the program
