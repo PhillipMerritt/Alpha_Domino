@@ -342,18 +342,18 @@ while 1:
         # so instead I made an list of players where two randomly sampled best_players are across from eachother
         # and 2 copies of the current player are across from each other
         #best_players = np.random.shuffle(best_players)
-        if iteration < 20:
+        """if iteration < 20:
             matches = 3
         elif iteration < 40:
             matches = 5
         elif iteration < 80:
             matches = 7
         else:
-            matches = 9
+            matches = 9"""
 
         tourney_players = [best_players[0],current_player,best_players[1],current_player]
 
-        scores, _, points = playMatches(tourney_players, matches, lg.logger_tourney,
+        scores, _, points = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
                                                 deterministic_play=True, memory=[None,None,None])
         print('\nSCORES')
         print(scores)
