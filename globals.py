@@ -10,6 +10,8 @@ shuffled_queue = []
 def queue_reset():
     shuffled_queue = deepcopy(unshuffled_queue)
 
+    np.random.seed()
+
     np.random.shuffle(shuffled_queue)
 
     return shuffled_queue

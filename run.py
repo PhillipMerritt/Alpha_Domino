@@ -13,7 +13,7 @@ import os
 
 play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
-all_version_tournament = True   # pit every model against every model below it
+all_version_tournament = False   # pit every model against every model below it
 version_testing = False # pit two models version against eachother 
 
 ############ Set debugging to true to delete the log folders every time you run the program
@@ -95,8 +95,8 @@ if all_version_tournament:
         high_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
                                     config.HIDDEN_CNN_LAYERS, i))
 
-    high = 0
-    matches = 100
+    high = 19
+    matches = 50
     while high <= 169:
         low = 0
         # load high model
@@ -138,8 +138,8 @@ if all_version_tournament:
             logger_all_version_tournament.info("{0}\t{1}\t{2}".format(high,low,win_perc))
             print("{0} vs. {1}, high win %: {2}".format(high,low,win_perc))
 
-            low += 10
-        high += 10
+            low += 20
+        high += 20
     exit(0)
 
 if version_testing:
@@ -360,7 +360,7 @@ while 1:
         print('\n\n')
 
         # if the current player is significantly better than the best_player replace the best player
-        if scores['current_player'] > scores['best_player']:
+        if scores['current_player'] > scores['best_player'] * config.SCORING_THRESHOLD:
             for i in range(DECISION_TYPES):
                 best_player_version[i] = best_player_version[i] + 1
                 best_NN[i].model.set_weights(current_NN[i].model.get_weights())
