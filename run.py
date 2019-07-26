@@ -15,7 +15,7 @@ play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
 all_version_tournament = False   # pit every model against every model below it
 version_testing = False # pit two models version against eachother 
-ismcts_agent_test = True
+ismcts_agent_test = False   # test against the non-NN implementation of ISMCTS
 
 
 ############ Set debugging to true to delete the log folders every time you run the program
