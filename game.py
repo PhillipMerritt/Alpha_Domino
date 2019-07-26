@@ -150,13 +150,7 @@ class GameState():
                 actions = deepcopy(self.hands[self.playerTurn])
             else:   # else this is a following player
                 for dom in self.hands[self.playerTurn]: # dominoes that are in the follow suit are available actions
-                    pip_tuple = self.all_domino[dom]    # the heavier pip determines the suit of a domino unless the trump_suit is in the domino
-                    suit = -1
-
-                    if self.trump_suit in pip_tuple:
-                        suit = self.trump_suit
-                    else:
-                        suit = max(pip_tuple)
+                    suit, _ = self.get_suit(dom)
 
                     if suit == self.fm_suit:
                         actions.append(dom)
@@ -310,16 +304,16 @@ class GameState():
         return id
 
     def _checkForEndGame(self):  # returns 1 if the last player played their last domino or if the current player has no possible plays otherwise returns 0
-        if max(self.marks) >= 1:
+        if max(self.marks) >= 2:
             return 1
 
         return 0
 
     def _getValue(self):
          # This is the value of the state
-        if self.marks[0] >= 1:
+        if self.marks[0] >= 2:
             return [1,-1]
-        elif self.marks[1] >= 1:
+        elif self.marks[1] >= 2:
             return [-1, 1]
         else:
             return [0,0]
@@ -350,26 +344,9 @@ class GameState():
             return self.trump_suit, True
         else:                               # else return the greater pip value
             return max(pip_tuple), False
-
-    # compares two dominoes and returns true if dom_b is heavier than domino
-    def compare_doms(self, dom_a, dom_b):
-        suit_a, trump_a = self.get_suit(dom_a)
-        suit_b, _ = self.get_suit(dom_b)
-
-        if suit_a == suit_b:    # if they are in the same suit
-            if dom_b in self.doubles: #if dom_b is a double and in same suit
-                return True
-            else:
-                rank_a = self.dom_rank[suit_a][dom_a]
-                rank_b = self.dom_rank[suit_b][dom_b]
-                return rank_a < rank_b  # return True if b is heavier than a
-        elif trump_a:
-            return False    # return false if only dom_a is in the trump suit
-        else:
-            return True     # else return false (only dom_b is in the trump suit or neither are and it doesn't matter)
     
     def weight_dom(self, dom):
-        suit, _ = self.get_suit(dom)
+        suit, trump = self.get_suit(dom)
         weight = self.dom_rank[suit][dom]
 
         if suit == self.trump_suit:
@@ -383,10 +360,15 @@ class GameState():
     def trick_score(self, played_dominoes):
         new_collections = deepcopy(self.collections)
         weights = []
+        doms = []
         for dom in played_dominoes:
+            doms.append(self.all_domino[dom])
             weights.append(self.weight_dom(dom))
 
         winning_player = np.argmax(weights)
+
+        #print("T: {0}, FM: {1}".format(self.trump_suit, self.fm_suit))
+        #print("played doms: {0}, winning player: {1}".format(doms, winning_player))
 
         winning_team = winning_player % 2
 

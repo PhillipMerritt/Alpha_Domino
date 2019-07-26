@@ -79,11 +79,23 @@ if initialise.INITIAL_RUN_NUMBER != None:
              './config.py')
 
 if ismcts_agent_test:
-    testing_agent = testing_agent(150, 'tester')
+    testing_agent_1 = testing_agent(150, 'tester')
+    testing_agent_2 = testing_agent(150, 'tester2')
     user = User("User1", env.state_size, env.action_size)
-    players = [user, testing_agent, user, testing_agent]
+    low_NN = []
+    for i in range(DECISION_TYPES):
+        low_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
+                            config.HIDDEN_CNN_LAYERS, i))
 
-    _, _, _ = playMatches(players,50,lg.logger_main,0)
+    # create low agent
+    low_agent = Agent('low_agent', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, low_NN)
+    low_agent2 = Agent('low_agent2', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, low_NN)
+
+
+    players = [testing_agent_1, low_agent, testing_agent_1, low_agent]
+
+    scores, _, _ = playMatches(players,100,lg.logger_main,0)
+    print(scores)
     exit(0)
 
 # plays every model version up to the value of high against every 5th version below it

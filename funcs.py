@@ -88,7 +88,7 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
             d_t = state.decision_type
             turn = state.playerTurn
             #### Run the MCTS algo and return an action
-            if players[turn]["name"] == 'tester':
+            if players[turn]["name"] == 'tester' or players[turn]["name"] == 'tester2':
                 action = players[state.playerTurn]['agent'].act(state)
             else:
                 action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
@@ -155,6 +155,16 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
                     #points[players[state.playerTurn]['name']].append(pts)
                     points[i].append(pts)
                     points[(i+2)%PLAYER_COUNT].append(pts)
+            elif done == 1:
+                if value[0] == 1:
+                    logger.info('%s WINS!', players[0]['name'])
+                    scores[players[0]['name']] = scores[players[0]['name']] + 1
+                elif value[1] == 1:
+                    logger.info('%s WINS!', players[1]['name'])
+                    scores[players[1]['name']] = scores[players[1]['name']] + 1
+                else:
+                    logger.info('DRAW...')
+                    scores['drawn'] = scores['drawn'] + 1
         end_game = timer()
         tk.total_game_time = end_game - start_game
         total_time_avg += tk.total_game_time
