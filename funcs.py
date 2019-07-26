@@ -86,25 +86,26 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
             turns = turns + 1 # turns until tao tracker
 
             d_t = state.decision_type
+            turn = state.playerTurn
             #### Run the MCTS algo and return an action
-            if not deterministic_play:
-                action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 1)
+            if players[turn]["name"] == 'tester':
+                action = players[state.playerTurn]['agent'].act(state)
             else:
                 action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
 
                 # store decision type from state
+            if players[turn]["name"] != 'tester':
+                if memory != None and memory[d_t] != None:
+                    ####Commit the move to memory
+                    memory[d_t].commit_stmemory(env.identities, state, pi)
 
-            if memory != None and memory[d_t] != None:
-                ####Commit the move to memory
-                memory[d_t].commit_stmemory(env.identities, state, pi)
-
-            if agents[0].name != 'User1':
-                logger.info('action: %d', action)
-                #for r in range(env.grid_shape[0]):
-                    #   logger.info(['----' if x == 0 else '{0:.2f}'.format(np.round(x,2)) for x in pi[env.grid_shape[1]*r : (env.grid_shape[1]*r + env.grid_shape[1])]])
-                logger.info('MCTS perceived value for %s: %f', action ,np.round(MCTS_value,2))
-                logger.info('NN perceived value for %s: %f', action ,np.round(NN_value,2))
-                logger.info('====================')
+                if agents[0].name != 'User1' and agents[0].name != 'tester':
+                    logger.info('action: %d', action)
+                    #for r in range(env.grid_shape[0]):
+                        #   logger.info(['----' if x == 0 else '{0:.2f}'.format(np.round(x,2)) for x in pi[env.grid_shape[1]*r : (env.grid_shape[1]*r + env.grid_shape[1])]])
+                    logger.info('MCTS perceived value for %s: %f', action ,np.round(MCTS_value,2))
+                    logger.info('NN perceived value for %s: %f', action ,np.round(NN_value,2))
+                    logger.info('====================')
 
             ### Do the action
             turn = state.playerTurn
@@ -116,7 +117,7 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
             
             #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
 
-            if done == 1:
+            if done == 1 and players[turn]["name"] != 'tester':
                 if value[0] == 1:   # assuming there are no draws for now
                     winning_team = 0
                 elif value[1] == 1:

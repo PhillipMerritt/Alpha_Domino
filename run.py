@@ -15,6 +15,8 @@ play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
 all_version_tournament = False   # pit every model against every model below it
 version_testing = False # pit two models version against eachother 
+ismcts_agent_test = True
+
 
 ############ Set debugging to true to delete the log folders every time you run the program
 debugging = False
@@ -46,7 +48,7 @@ import sys
 from keras.utils import plot_model
 
 from game import Game, GameState
-from agent import Agent
+from agent import Agent, testing_agent
 from agent import User
 from memory import Memory
 from model import Residual_CNN
@@ -75,6 +77,14 @@ env = Game()
 if initialise.INITIAL_RUN_NUMBER != None:
     copyfile(run_archive_folder + env.name + '/run' + str(initialise.INITIAL_RUN_NUMBER).zfill(4) + '/config.py',
              './config.py')
+
+if ismcts_agent_test:
+    testing_agent = testing_agent(150, 'tester')
+    user = User("User1", env.state_size, env.action_size)
+    players = [user, testing_agent, user, testing_agent]
+
+    _, _, _ = playMatches(players,50,lg.logger_main,0)
+    exit(0)
 
 # plays every model version up to the value of high against every 5th version below it
 if all_version_tournament:

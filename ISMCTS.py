@@ -24,6 +24,12 @@ class Node():
 		else:
 			return True
 
+	def getVisits(self):
+		total = 0
+		for edge in self.inEdges:
+			total += edge.bandit_stats['V']
+		return total
+
 class Edge():
 
 	def __init__(self, inNode, prior, action, outNode=None):
@@ -39,7 +45,7 @@ class Edge():
 					'P': prior,
 				}
 
-		self.bandit_stats = {'V': 0, 'R': 0} 	# Visits and Rewards
+		self.bandit_stats = {'V': 0, 'R': 0, 'P':0} 	# Visits, Rewards, parent_visits
 
 				
 
@@ -183,13 +189,22 @@ class MCTS():
 		breadcrumbs = []
 		currentNode = self.root
 
+		if currentNode.edges == []:
+			for action in currentNode.state.allowedActions:
+				new_edge = Edge(currentNode, None, action)
+				currentNode.edges.append((action, new_edge))
+	
+
 		done = 0
 		value = 0
-
 
 		while not currentNode.isLeaf():
 			lg.logger_mcts.info('PLAYER TURN...%d', currentNode.state.playerTurn)
 		
+			# update the parent visits for each edge from currentNode
+			for (action, edge) in currentNode.edges:
+				edge.bandit_stats['P'] += 1
+
 			max_ucb = -99999
 
 			untried_actions, existing_untried, legal_actions = self.getUntriedActions(currentNode)	
@@ -197,22 +212,25 @@ class MCTS():
 			if untried_actions == []:	# if all actions have been explored update the stats of currentNode's edges and choose the highest Q+U
 				for idx, (action, edge) in enumerate(currentNode.edges):
 					if action in legal_actions:	#TODO: make legal actions a dict
-						visits = edge.bandit_stats['V']						
+						visits = edge.bandit_stats['V']
+
+						#calculate UCB1 value for each edge
+						# (total reward / # of visits) + exploration_constant * sqrt(log(# of parent visits)/# of visits)
+
 						ucb_temp = (edge.bandit_stats['R'] / visits) \
-							+ 0.7 * np.math.sqrt(np.math.log(current_node.inEdges[-1].bandit_stats['V']) / visits)
+							+ 0.7 * np.math.sqrt(np.math.log(edge.bandit_stats['P']) / visits)
 						#only hold the MAX UCB value and then move on to next (action, edge)
-						if ucb_ temp > max_ucb:
+						if ucb_temp > max_ucb:
 							max_ucb = ucb_temp
 							simulationAction = action
 							simulationEdge = edge
-
 			elif not currentNode.isLeaf():	# if there are untried actions choose a random one then get predictions for ALL available actions and update the old predictions
 				simulationAction = np.random.choice(untried_actions)
 				chosen_edge = None
 
 				for i, action in enumerate(currentNode.state.allowedActions):	# insert new action edge pairs into currentNode.edges
 					if action in untried_actions and action not in existing_untried:	# dirty but works
-						new_edge = Edge(currentNode, probs[i], action)
+						new_edge = Edge(currentNode, None, action)
 						currentNode.edges.append((action, new_edge))
 
 						if action == simulationAction:
@@ -268,9 +286,13 @@ class MCTS():
 
 		#Rollout
 		state = currentNode.state
-		while not state.isEndGame:
+		terminal = state.isEndGame
+		while not terminal:
 			temp_action = np.random.choice(state.allowedActions)
-			state, _, _ = state.takeAction()
+			state, value_tuple, terminal = state.takeAction(temp_action)
+
+		value = value_tuple[newState.playerTurn % TEAM_SIZE]
+
 		return currentNode, value, done, breadcrumbs
 
 	def backFill(self, leaf, value, breadcrumbs):
@@ -296,6 +318,23 @@ class MCTS():
 				, edge.stats['W']
 				, edge.stats['Q']
 				)
+
+			edge.outNode.state.render(lg.logger_mcts)
+
+	def backFill_bandit(self, leaf, value, breadcrumbs):
+		lg.logger_mcts.info('------DOING BACKFILL------')
+
+		currentPlayer = leaf.state.playerTurn % 2
+
+		for edge in breadcrumbs:
+			playerTurn = edge.playerTurn
+			if playerTurn % 2 == currentPlayer:	# added the or to set the values to positive for currentPlayer's partner
+				direction = 1
+			else:
+				direction = -1
+
+			edge.bandit_stats['V'] += 1
+			edge.bandit_stats['R'] += direction
 
 			edge.outNode.state.render(lg.logger_mcts)
 

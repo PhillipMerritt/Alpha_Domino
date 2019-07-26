@@ -7,7 +7,7 @@ DECISION_TYPES = 2
 EPISODES = 30
 MCTS_SIMS = 80
 RANDOMIZED_SIM_LOOPS = 2
-MEMORY_SIZE = [2000, 500]	# default was 30000 which would take 1500ish episodes to reach
+MEMORY_SIZE = [4000, 1000]	# default was 30000 which would take 1500ish episodes to reach
 MIN_MEMORY_SIZE = 1000
 MEM_INCREMENT = 250
 MAX_MEMORY_SIZE = 5000
@@ -17,7 +17,7 @@ ALPHA = 0.8
 
 
 #### RETRAINING
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 EPOCHS = 1
 REG_CONST = 0.0001
 LEARNING_RATE = 0.1
