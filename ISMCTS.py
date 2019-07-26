@@ -3,6 +3,7 @@ import logging
 import config
 from config import PLAYER_COUNT, TEAM_SIZE
 
+
 from utils import setup_logger
 import loggers as lg
 
@@ -15,8 +16,7 @@ class Node():
 		self.playerTurn = state.playerTurn
 		self.id = id
 		self.edges = []
-		self.inEdges = []
-		
+		self.inEdges = []		
 
 	def isLeaf(self):
 		if len(self.edges) > 0:
@@ -38,6 +38,9 @@ class Edge():
 					'Q': 0,
 					'P': prior,
 				}
+
+		self.bandit_stats = {'V': 0, 'R': 0} 	# Visits and Rewards
+
 				
 
 class MCTS():
@@ -176,7 +179,99 @@ class MCTS():
 
 		return currentNode, value, done, breadcrumbs
 
+	def moveToLeaf_rollout(self, agent):
+		breadcrumbs = []
+		currentNode = self.root
 
+		done = 0
+		value = 0
+
+
+		while not currentNode.isLeaf():
+			lg.logger_mcts.info('PLAYER TURN...%d', currentNode.state.playerTurn)
+		
+			max_ucb = -99999
+
+			untried_actions, existing_untried, legal_actions = self.getUntriedActions(currentNode)	
+			
+			if untried_actions == []:	# if all actions have been explored update the stats of currentNode's edges and choose the highest Q+U
+				for idx, (action, edge) in enumerate(currentNode.edges):
+					if action in legal_actions:	#TODO: make legal actions a dict
+						visits = edge.bandit_stats['V']						
+						ucb_temp = (edge.bandit_stats['R'] / visits) \
+							+ 0.7 * np.math.sqrt(np.math.log(current_node.inEdges[-1].bandit_stats['V']) / visits)
+						#only hold the MAX UCB value and then move on to next (action, edge)
+						if ucb_ temp > max_ucb:
+							max_ucb = ucb_temp
+							simulationAction = action
+							simulationEdge = edge
+
+			elif not currentNode.isLeaf():	# if there are untried actions choose a random one then get predictions for ALL available actions and update the old predictions
+				simulationAction = np.random.choice(untried_actions)
+				chosen_edge = None
+
+				for i, action in enumerate(currentNode.state.allowedActions):	# insert new action edge pairs into currentNode.edges
+					if action in untried_actions and action not in existing_untried:	# dirty but works
+						new_edge = Edge(currentNode, probs[i], action)
+						currentNode.edges.append((action, new_edge))
+
+						if action == simulationAction:
+							chosen_edge = new_edge
+
+				if chosen_edge == None:
+					for (action, edge) in currentNode.edges:
+						if action == simulationAction:
+							chosen_edge = edge
+							break
+
+				# TODO: averaging prior probability with new probability
+
+				lg.logger_mcts.info('Untried action: %d', simulationAction)
+
+
+			
+
+			start = timer()
+			newState, value_tuple, done = currentNode.state.takeAction(simulationAction) #the value of the newState from the POV of the new playerTurn
+			end = timer()
+			tk.take_action_time += end - start
+
+			# if a new action is being explored add the resulting node to the tree
+			# and store that node in the corresponding edge's outNode as well as the
+			# edge in the node's inEdge
+			if untried_actions != []:
+				if newState.playerTurn == self.root.playerTurn:
+					id = newState.id
+				else:
+					id = gen_id(chosen_edge, self.root.playerTurn)
+				
+				if id not in self.tree:
+					node = Node(newState, id)
+					self.addNode(node)
+					lg.logger_mcts.info('added node...%s', node.id)
+				else:
+					node = self.tree[id]
+					lg.logger_mcts.info('existing node...%s',node.id)
+					node.state = newState
+
+				chosen_edge.outNode = node
+				node.inEdges.append(chosen_edge)
+				simulationEdge = chosen_edge
+
+			value = value_tuple[newState.playerTurn % TEAM_SIZE]
+
+			currentNode = simulationEdge.outNode
+			currentNode.state = newState
+			breadcrumbs.append(simulationEdge)
+
+		lg.logger_mcts.info('DONE...%d', done)
+
+		#Rollout
+		state = currentNode.state
+		while not state.isEndGame:
+			temp_action = np.random.choice(state.allowedActions)
+			state, _, _ = state.takeAction()
+		return currentNode, value, done, breadcrumbs
 
 	def backFill(self, leaf, value, breadcrumbs):
 		lg.logger_mcts.info('------DOING BACKFILL------')

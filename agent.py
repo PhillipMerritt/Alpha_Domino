@@ -254,3 +254,54 @@ class Agent():
     def changeRootMCTS(self, state):
         lg.logger_mcts.info('****** CHANGING ROOT OF MCTS TREE TO %s FOR AGENT %s ******', state.id, self.name)
         self.mcts.root = self.mcts.tree[state.id]
+
+class testing_agent():
+    def __init__(self, mcts_simulations):
+        self.name = name
+        self.MCTSsimulations = mcts_simulations
+        self.mcts = None
+    
+    def act(self, state):
+        state = state.CloneAndRandomize()
+        d_t = state.decision_type   # store which decision type this will be
+
+        if self.mcts == None or state.id not in self.mcts.tree:
+            self.buildMCTS(state)
+        else:
+            self.changeRootMCTS(state)
+
+        #### run the simulation
+        for sim in range(self.MCTSsimulations):
+            lg.logger_mcts.info('***************************')
+            lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
+            lg.logger_mcts.info('***************************')
+            self.simulate()
+            if sim < self.MCTSsimulations - 1:
+                state = state.CloneAndRandomize() # determinize
+                self.mcts.root.state = state
+
+        #### get action values
+        pi, values = self.getAV(1, d_t)
+
+        ####pick the action
+        action, value = self.chooseAction(pi, values, tau)
+
+        start = timer()
+        nextState, _, _ = state.takeAction(action)
+        end = timer()
+        tk.take_action_time += end - start
+        NN_value = -self.get_preds(nextState,d_t)[0]
+
+        lg.logger_mcts.info('ACTION VALUES...%s', pi)
+        lg.logger_mcts.info('CHOSEN ACTION...%d', action)
+        lg.logger_mcts.info('MCTS PERCEIVED VALUE...%f', value)
+        lg.logger_mcts.info('NN PERCEIVED VALUE...%f', NN_value)
+        
+        return (action, pi, value, NN_value)
+
+        # Move to leaf, rollout, backfill
+        def simulate(self):
+            leaf, value, done, breadcrumbs = self.mcts.moveToLeaf_rollout(self)
+
+            self.mcts.backFill_no_NN(leaf, value, breadcrubs)
+
