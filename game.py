@@ -475,10 +475,12 @@ class GameState():
             elif self.high_bid < 30:                # if this is the first bid start the bidding at 30
                 new_high_bid = 30
                 highest_bidder = self.playerTurn
+                new_passed[self.playerTurn] = True
                 next_player = highest_bidder
             else:                                   # else increment the bid by 1
                 new_high_bid = self.high_bid + 1
                 highest_bidder = self.playerTurn
+                new_passed[self.playerTurn] = True
                 next_player = highest_bidder
 
                 if new_high_bid == 42:              # if max bid is reached move onto decision type 1 (choosing trump suit)
