@@ -114,7 +114,8 @@ class Agent():
                 state = state.CloneAndRandomize() # determinize
                 self.mcts.root.state = state
 
-        self.mcts.render()
+        #self.mcts.render()
+        
         #### get action values
         pi, values = self.getAV(1, d_t)
 

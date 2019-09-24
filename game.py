@@ -312,6 +312,8 @@ class GameState():
             else:
                 id += '|' + str(dom)
 
+        return id
+
     def _checkForEndGame(self):  # returns 1 if the last player played their last domino or if the current player has no possible plays otherwise returns 0
         if max(self.marks) >= 2:
             return 1

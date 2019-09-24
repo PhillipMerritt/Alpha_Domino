@@ -165,7 +165,7 @@ class MCTS():
 				if newState.playerTurn == self.root.playerTurn:
 					id = newState.id
 				else:
-					id = gen_id(chosen_edge, self.root.playerTurn)
+					id = newState.get_public_info()
 				
 				if id not in self.tree:
 					node = Node(newState, id)
@@ -266,7 +266,7 @@ class MCTS():
 				if newState.playerTurn == self.root.playerTurn:
 					id = newState.id
 				else:
-					id = gen_id(chosen_edge, self.root.playerTurn)
+					id = newState.get_public_info()
 				
 				if id not in self.tree:
 					node = Node(newState, id)
@@ -406,4 +406,4 @@ def gen_id(inEdge, root_player):
 	while action_trail != []:
 		id += '|' + str(action_trail.pop())"""
 
-	return inEdge.outNode.state.get_public_info()
+	return inEdge.inNode.state.get_public_info()
