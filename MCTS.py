@@ -8,6 +8,9 @@ import loggers as lg
 
 import time_keeper as tk
 from time_keeper import *
+
+import networkx as nx
+import matplotlib.pyplot as plt
 class Node():
 
 	def __init__(self, state):
@@ -144,3 +147,50 @@ class MCTS():
 	def addNode(self, node):
 		self.tree[node.id] = node
 
+	def render(self):
+		G = nx.DiGraph()
+		edges = self.BFS()
+
+		G.add_edges_from(edges)
+
+		plt.subplot(121)
+
+		nx.draw(G, with_labels=True, font_weight='bold')
+		plt.subplot(122)
+
+		nx.draw_shell(G, nlist=[range(5, 10), range(5)], with_labels=True, font_weight='bold')
+
+
+	# creates a list of edges using a BFS to use for rendering
+	def BFS(self): 
+		visited = {}
+		edges = []
+		# Mark all the vertices as not visited 
+		for node in self.tree:
+			visited[node.id] = False
+
+		# Create a queue for BFS 
+		queue = [] 
+
+		# Mark the source node as  
+		# visited and enqueue it 
+		queue.append(self.root) 
+		visited[self.root.id] = True
+
+		while queue: 
+
+			# Dequeue a vertex from  
+			# queue and print it 
+			s = queue.pop(0)
+
+			# Get all adjacent vertices of the 
+			# dequeued vertex s. If a adjacent 
+			# has not been visited, then mark it 
+			# visited and enqueue it 
+			for i in s.edges:
+				edges.append((s.id,i.outNode.id)) 
+				if visited[i.outNode.id] == False: 
+					queue.append(i.outNode) 
+					visited[i.outNode.id] = True
+
+		return edges

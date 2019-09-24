@@ -181,7 +181,7 @@ class GameState():
 
     # generates a list of all allowed actions. If there are no available actions dominoes are drawn if available
     # until there are actions to be made. The actions are in the form of (train,domino) (ex. domino 14 to train 3 would be (3, 14))
-    # actually maybe it will be action = (train # * 28) + action (ex. domino 14 to train 3 would be (3*28)+14 = 98
+    # actually maybe it will be action = (train num * 28) + action (ex. domino 14 to train 3 would be (3*28)+14 = 98
     def _allowedActions(self):
         while 1:  # checks for actions. If none found draw a domino and try again
             actions = []

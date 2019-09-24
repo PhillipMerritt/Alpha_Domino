@@ -9,12 +9,17 @@ import loggers as lg
 
 import time_keeper as tk
 from time_keeper import *
+
+import networkx as nx
+#from networkx.drawing.nx_agraph import graphviz_layout
+import matplotlib.pyplot as plt
 class Node():
 
 	def __init__(self, state, id):
 		self.state = state
 		self.playerTurn = state.playerTurn
 		self.id = id
+		self.render_id = 0
 		self.edges = []
 		self.inEdges = []		
 
@@ -338,16 +343,60 @@ class MCTS():
 
 			edge.outNode.state.render(lg.logger_mcts)
 
-	def addNode(self, node):
-		self.tree[node.id] = node
+	def render(self):
+		G = nx.DiGraph()
+		edges = self.BFS()
+		G.add_edges_from(edges)
+		#pos=graphviz_layout(G, prog='dot')
+		nx.draw_spring(G)
+		plt.show()
 
+
+	# creates a list of edges using a BFS to use for rendering
+	def BFS(self): 
+		visited = {}
+		edges = []
+		# Mark all the vertices as not visited 
+		visited = [False] * (len(self.tree)) 
+
+		# Create a queue for BFS 
+		queue = [] 
+
+		# Mark the source node as  
+		# visited and enqueue it 
+		queue.append(self.root) 
+		visited[self.root.render_id] = True
+
+		while queue: 
+
+			# Dequeue a vertex from  
+			# queue and print it 
+			s = queue.pop(0)
+
+			# Get all adjacent vertices of the 
+			# dequeued vertex s. If a adjacent 
+			# has not been visited, then mark it 
+			# visited and enqueue it 
+			for i in s.edges:
+				if i[1].outNode != None:
+					edges.append((s.render_id,i[1].outNode.render_id)) 
+					if visited[i[1].outNode.render_id] == False: 
+						queue.append(i[1].outNode) 
+						visited[i[1].outNode.render_id] = True
+
+		return edges
+
+
+	def addNode(self, node):
+		node.render_id = len(self.tree)
+		self.tree[node.id] = node
 # ID's will all be based on the perspective of the root player
 # i.e. the ID will either be the actual state ID if the root player is the
 # current player in that state or it will be the ID of the last state where
 # the root player was the current player followed by the series of moves that
 # led to this state
 def gen_id(inEdge, root_player):
-	action_trail = [inEdge.action]
+	"""action_trail = [inEdge.action]
 	temp_node = inEdge.inNode
 	while temp_node.playerTurn != root_player:
 		action_trail.append(temp_node.inEdges[0].action)
@@ -355,6 +404,6 @@ def gen_id(inEdge, root_player):
 	
 	id = temp_node.state.id
 	while action_trail != []:
-		id += '|' + str(action_trail.pop())
+		id += '|' + str(action_trail.pop())"""
 
-	return id
+	return inEdge.outNode.state.get_public_info()

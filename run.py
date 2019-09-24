@@ -3,7 +3,8 @@
 #%load_ext autoreload
 #%autoreload 2
 import tensorflow as tf
-from keras.backend.tensorflow_backend import set_session
+from keras.backend.tensorflow_backend import set_session, set_learning_phase
+set_learning_phase(0)
 """config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 set_session(tf.Session(config=config))"""
@@ -32,15 +33,15 @@ if debugging:
 
 import numpy as np
 np.set_printoptions(suppress=True)
-#seed = 808 # np.random.random_integers(0,5000)
+seed = 808 # np.random.random_integers(0,5000)
 #print(seed)
-#np.random.seed(seed=seed)
+np.random.seed(seed=seed)
 
 from shutil import copyfile
 import random
-#py_seed = 967 #random.randint(0,1000)
+py_seed = 967 #random.randint(0,1000)
 #print("Python seed: {0}".format(py_seed))
-#random.seed(py_seed)
+random.seed(py_seed)
 from importlib import reload
 import sys
 
@@ -311,6 +312,8 @@ while 1:
         memory.clear_stmemory()
 
         if len(memory.ltmemory) == MEMORY_SIZE[d_t]:
+            set_learning_phase(1) # tell keras backend that the model will be learning now
+
             trained = True
             ######## RETRAINING ########
             print('RETRAINING...')
@@ -341,6 +344,8 @@ while 1:
 
                 s['state'].render(lg.logger_memory)
             
+            set_learning_phase(0)   # set learning phase back to 0
+
             #if len(memory.ltmemory) < MEMORY_SIZE[d_t]:
                 #full_memory = False
         #else:
