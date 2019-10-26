@@ -303,14 +303,20 @@ class GameState():
 
         return id
     
-    def get_public_info(self):
-        id = ""
+    def get_public_info(self, root = False):
+        id = 'Trump: ' + str(self.trump_suit) + ', Follow: ' + str(self.fm_suit) + '\n'
 
-        for dom in self.played_dominoes:
-            if dom == -1:
+        if root:
+            id += str([self.all_domino[dom] for dom in self.hands[self.playerTurn]])
+            id += '\n'
+
+        for i, dom in enumerate(self.played_dominoes):
+            if dom == -1 and i == self.playerTurn:
+                id += '|A'
+            elif dom == -1:
                 id += '|-'
             else:
-                id += '|' + str(dom)
+                id += '|' + str(self.all_domino[dom])
 
         return id
 

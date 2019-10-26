@@ -13,6 +13,7 @@ from time_keeper import *
 import networkx as nx
 #from networkx.drawing.nx_agraph import graphviz_layout
 import matplotlib.pyplot as plt
+import tempfile
 class Node():
 
 	def __init__(self, state, id):
@@ -346,18 +347,29 @@ class MCTS():
 	def render(self):
 		G = nx.DiGraph()
 		edges = self.BFS()
-		G.add_edges_from(edges)
-		#pos=graphviz_layout(G, prog='dot')
-		nx.draw_spring(G)
-		plt.show()
-
-
+		for edge in edges:
+			G.add_edge(*edge[0], label=edge[1])
+			"""G.nodes[edge[0][0]]['label'] = edge[0][0]
+			G.nodes[edge[0][1]]['label'] = edge[0][1]"""
+		#G.add_edges_from(edges)
+		#print(G.nodes(data=True))
+		p=nx.drawing.nx_pydot.to_pydot(G)
+		#p.view(tempfile.mktemp('.gv'))  
+		p.write_png('ISMCTS_' + str(config.MCTS_SIMS) + '.png')
+		
+		#p.write('./')
+		exit(0)
 	# creates a list of edges using a BFS to use for rendering
 	def BFS(self): 
+		all_domino = [(0, 0), (0, 1), (1, 1), (0, 2), (1, 2), (2, 2), (0, 3), (1, 3), (2, 3), (3, 3), (0, 4),
+                           (1, 4), (2, 4), (3, 4), (4, 4), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5), (5, 5), (0, 6),
+                           (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6)]
 		visited = {}
 		edges = []
 		# Mark all the vertices as not visited 
 		visited = [False] * (len(self.tree)) 
+
+		root_player = self.root.state.playerTurn
 
 		# Create a queue for BFS 
 		queue = [] 
@@ -373,13 +385,24 @@ class MCTS():
 			# queue and print it 
 			s = queue.pop(0)
 
+			if s.state.playerTurn == root_player:
+				parent_id = s.state.get_public_info(True)
+			else:
+				parent_id = s.id
+
 			# Get all adjacent vertices of the 
 			# dequeued vertex s. If a adjacent 
 			# has not been visited, then mark it 
 			# visited and enqueue it 
 			for i in s.edges:
 				if i[1].outNode != None:
-					edges.append((s.render_id,i[1].outNode.render_id)) 
+					if i[1].outNode.state.playerTurn == root_player:
+						child_id = i[1].outNode.state.get_public_info(True)
+					else:
+						child_id = i[1].outNode.id
+
+					#edges.append(((s.render_id,i[1].outNode.render_id), i[0]))
+					edges.append(((parent_id, child_id), str(all_domino[i[0]]) + '\n' + str(i[1].stats['Q']))) 
 					if visited[i[1].outNode.render_id] == False: 
 						queue.append(i[1].outNode) 
 						visited[i[1].outNode.render_id] = True
