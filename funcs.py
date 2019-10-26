@@ -118,20 +118,19 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
             #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
 
             if done == 1 and players[turn]["name"] != 'tester':
-                if value[0] == 1:   # assuming there are no draws for now
-                    winning_team = 0
-                elif value[1] == 1:
-                    winning_team = 1
-                else:
+                winning_team = np.argmax(value)
+                if winning_team != type(int):
                     print("value error")
                     exit(0)
+                winning_team = winning_team % TEAM_SIZE
 
                 if memory != None:
                     #### If the game is finished, assign the values to the history of moves from the game
                     for d_t in range(config.DECISION_TYPES):
                         if memory[d_t] != None:
                             for move in memory[d_t].stmemory:
-                                if move['playerTurn'] % int(PLAYER_COUNT/TEAM_SIZE) == winning_team:
+                                #if move['playerTurn'] % int(PLAYER_COUNT/TEAM_SIZE) == winning_team:
+                                if move['playerTurn'] % TEAM_SIZE == winning_team:
                                     move['value'] = 1
                                 else:
                                     move['value'] = -1
