@@ -302,6 +302,23 @@ class GameState():
             id += '|' + str(self.played_dominoes[turn])
 
         return id
+    
+    def get_public_info(self, root = False):
+        id = 'Trump: ' + str(self.trump_suit) + ', Follow: ' + str(self.fm_suit) + '\n'
+
+        if root:
+            id += str([self.all_domino[dom] for dom in self.hands[self.playerTurn]])
+            id += '\n'
+
+        for i, dom in enumerate(self.played_dominoes):
+            if dom == -1 and i == self.playerTurn:
+                id += '|A'
+            elif dom == -1:
+                id += '|-'
+            else:
+                id += '|' + str(self.all_domino[dom])
+
+        return id
 
     def _checkForEndGame(self):  # returns 1 if the last player played their last domino or if the current player has no possible plays otherwise returns 0
         if max(self.marks) >= 2:
