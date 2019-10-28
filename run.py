@@ -377,8 +377,10 @@ while 1:
             matches = 7
         else:
             matches = 9"""
-
-        tourney_players = [best_players[0],current_player,best_players[1],current_player]
+        tourney_players = []
+        for i in range(int(PLAYER_COUNT / 2)):
+            tourney_players.append(best_player[i])
+            tourney_players.append(current_player)
 
         scores, _, points = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
                                                 deterministic_play=True)

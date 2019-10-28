@@ -25,7 +25,7 @@ class Node():
 		self.inEdges = []		
 
 	def isLeaf(self):
-		if len(self.edges) > 0:
+		if len(self.edges) > 0 and not self.state.isEndGame:
 			return False
 		else:
 			return True
@@ -67,9 +67,7 @@ class MCTS():
 		return len(self.tree)
 
 	# returns list of legal untried actions
-	def getUntriedActions(self, node):
-		legal_actions = node.state.allowedActions	# list of possible actions from this state
-
+	def getUntriedActions(self, node, legal_actions):
 		tried_actions = [action for (action, edge) in node.edges if edge.outNode != None]	# list of already taken actions from this node
 		existing_untried = [action for (action, edge) in node.edges if edge.outNode == None]
 
@@ -86,10 +84,15 @@ class MCTS():
 
 		done = 0
 		value = 0
+		simulationAction = 0
+
+		current_state = self.root.state
 
 
 		while not currentNode.isLeaf():
-			lg.logger_mcts.info('PLAYER TURN...%d', currentNode.state.playerTurn)
+			lg.logger_mcts.info('PLAYER TURN...%d', current_state.playerTurn)
+
+			prev_action = simulationAction
 		
 			maxQU = -99999
 
@@ -100,7 +103,7 @@ class MCTS():
 				epsilon = 0
 				nu = [0] * len(currentNode.edges)
 
-			untried_actions, existing_untried, legal_actions = self.getUntriedActions(currentNode)	
+			untried_actions, existing_untried, legal_actions = self.getUntriedActions(currentNode, current_state.allowedActions)	
 			
 			if untried_actions == []:	# if all actions have been explored update the stats of currentNode's edges and choose the highest Q+U
 				Nb = 0					# Nb is the total number of actions taken from state
@@ -133,7 +136,7 @@ class MCTS():
 
 				chosen_edge = None
 
-				for i, action in enumerate(currentNode.state.allowedActions):	# insert new action edge pairs into currentNode.edges
+				for i, action in enumerate(legal_actions):	# insert new action edge pairs into currentNode.edges
 					if action in untried_actions and action not in existing_untried:	# dirty but works
 						new_edge = Edge(currentNode, probs[i], action)
 						currentNode.edges.append((action, new_edge))
@@ -153,11 +156,31 @@ class MCTS():
 
 
 			
+			if simulationAction not in current_state.allowedActions:
+				print("untried: {0}, existing: {1}, legal: {2}".format(untried_actions, existing_untried, legal_actions))
+				print(simulationAction)
+				print("action error")
+				exit(1)
 
-			start = timer()
-			newState, value_tuple, done = currentNode.state.takeAction(simulationAction) #the value of the newState from the POV of the new playerTurn
-			end = timer()
-			tk.take_action_time += end - start
+			current_turn = current_state.playerTurn
+
+			# keeps making actions until there is a decision to be made or it is a terminal state
+			# in order to generate the state for the next node
+			while 1:
+				#print("from ISMCTS")
+				start = timer()
+				newState, value_tuple, done = current_state.takeAction(simulationAction) #the value of the newState from the POV of the new playerTurn
+				end = timer()
+				tk.take_action_time += end - start
+
+				if done or len(newState.allowedActions) > 1:  # if the game is over or the current player has a choice break the loop
+					break
+				elif len(newState.allowedActions) == 1:   # else takeAction() with the one action available
+					simulationAction = newState.allowedActions[0]
+					current_state = newState
+				else:                                           # or if no actions are available pass turn by taking action -1
+					current_state = newState
+					simulationAction = -1
 
 			# if a new action is being explored add the resulting node to the tree
 			# and store that node in the corresponding edge's outNode as well as the
@@ -166,7 +189,7 @@ class MCTS():
 				if newState.playerTurn == self.root.playerTurn:
 					id = newState.id
 				else:
-					id = newState.get_public_info()
+					id = newState.public_id
 				
 				if id not in self.tree:
 					node = Node(newState, id)
@@ -181,10 +204,11 @@ class MCTS():
 				node.inEdges.append(chosen_edge)
 				simulationEdge = chosen_edge
 
-			value = value_tuple[newState.playerTurn % TEAM_SIZE]
+			value = value_tuple[current_turn % TEAM_SIZE]
 
 			currentNode = simulationEdge.outNode
 			currentNode.state = newState
+			current_state = newState
 			breadcrumbs.append(simulationEdge)
 
 		lg.logger_mcts.info('DONE...%d', done)

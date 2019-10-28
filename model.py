@@ -242,5 +242,6 @@ class Residual_CNN(Gen_Model):
 
 	def convertToModelInput(self, state):
 		inputToModel =  state.binary #np.append(state.binary, [(state.playerTurn + 1)/2] * self.input_dim[1] * self.input_dim[2])
-		inputToModel = np.reshape(inputToModel, self.input_dim) 
+		#inputToModel = np.reshape(inputToModel, self.input_dim) 
+		inputToModel = np.expand_dims(inputToModel, 0)
 		return (inputToModel)

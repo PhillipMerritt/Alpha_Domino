@@ -11,7 +11,7 @@ from game import GameState
 from loss import softmax_cross_entropy_with_logits
 
 import config
-from config import DECISION_TYPES, RANDOMIZED_SIM_LOOPS
+from config import DECISION_TYPES
 import loggers as lg
 import time
 
@@ -106,6 +106,9 @@ class Agent():
 
         #### run the simulation
         for sim in range(self.MCTSsimulations):
+            if len(state.allowedActions) == 0:
+                print("agent asked to choose from nothing after {0} simulations".format(sim))
+                exit(1)
             lg.logger_mcts.info('***************************')
             lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
             lg.logger_mcts.info('***************************')
@@ -167,6 +170,11 @@ class Agent():
     def evaluateLeaf(self, leaf, value, done, breadcrumbs):
 
         lg.logger_mcts.info('------EVALUATING LEAF------')
+
+        if leaf == self.mcts.root and len(self.mcts.root.edges) > 0:
+            print("evaluating root more than once")
+            leaf.state.user_print()
+            exit(1)
 
         if done == 0:
             start = timer()

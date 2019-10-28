@@ -66,6 +66,13 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
         print (str(e+1) + ' ', end='')
 
         state = env.reset()
+        
+        
+        if state.isEndGame:
+            print("over before started")
+            exit(0)
+            
+        print("Starting hands: {0}".format(state.hands))
 
         if len(state.allowedActions) == 1:  # if things like bidding at the beginning only give one action go ahead and  automate those w/ env.step
                 state, _, _, _ = env.step(state.allowedActions[0], logger)
@@ -83,7 +90,11 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
         start_game = timer()
 
         while done == 0:
+            #print("turn: {0}".format(turns))
             turns = turns + 1 # turns until tao tracker
+
+            if len(state.allowedActions) < 2:
+                print("funcs loop, no choices")
 
             d_t = state.decision_type
             turn = state.playerTurn
@@ -107,9 +118,13 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
                     logger.info('NN perceived value for %s: %f', action ,np.round(NN_value,2))
                     logger.info('====================')
 
+
+            if action not in state.allowedActions:
+                print("error in funcs")
             ### Do the action
             turn = state.playerTurn
 
+            #print("from funcs")
             if players[state.playerTurn]['name'] == 'user':
                 state, value, done, _ = env.step(action, logger, True)  # this parameter tells the gameState to print out automated turns for the user's convenience
             else:
@@ -118,10 +133,7 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
             #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
 
             if done == 1 and players[turn]["name"] != 'tester':
-                winning_team = np.argmax(value)
-                if winning_team != type(int):
-                    print("value error")
-                    exit(0)
+                winning_team = int(np.argmax(value))
                 winning_team = winning_team % TEAM_SIZE
 
                 if memory != None:
@@ -150,10 +162,10 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
                     scores['drawn'] = scores['drawn'] + 1
                     #sp_scores['drawn'] = sp_scores['drawn'] + 1
 
-                for i,pts in enumerate(state.marks):
+                """for i,pts in enumerate(state.marks):
                     #points[players[state.playerTurn]['name']].append(pts)
                     points[i].append(pts)
-                    points[(i+2)%PLAYER_COUNT].append(pts)
+                    points[(i+2)%PLAYER_COUNT].append(pts)"""
             elif done == 1:
                 if value[0] == 1:
                     logger.info('%s WINS!', players[0]['name'])
