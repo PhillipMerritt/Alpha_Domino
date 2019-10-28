@@ -63,7 +63,7 @@ import initialise
 import pickle
 
 import config
-from config import PLAYER_COUNT, DECISION_TYPES, MEMORY_SIZE
+from config import PLAYER_COUNT, TEAM_SIZE, DECISION_TYPES, MEMORY_SIZE
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'

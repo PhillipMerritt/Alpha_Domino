@@ -99,10 +99,12 @@ class Agent():
         state = state.CloneAndRandomize()
         d_t = state.decision_type   # store which decision type this will be
 
-        if self.mcts == None or state.id not in self.mcts.tree:
+        """if self.mcts == None or state.id not in self.mcts.tree:
             self.buildMCTS(state)
         else:
-            self.changeRootMCTS(state)
+            self.changeRootMCTS(state)"""
+
+        self.buildMCTS(state)
 
         #### run the simulation
         for sim in range(self.MCTSsimulations):
@@ -116,6 +118,7 @@ class Agent():
             if sim < self.MCTSsimulations - 1:
                 state = state.CloneAndRandomize() # determinize
                 self.mcts.root.state = state
+            #self.mcts.render(sim)
 
         """if state.decision_type == 0:
             self.mcts.render()"""

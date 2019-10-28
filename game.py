@@ -163,6 +163,15 @@ class GameState():
 
         self.passed = passed
 
+        self.isEndGame = self._checkForEndGame()
+        self.value = self._getValue()  # the value is from the POV of the current player. So either 0 for the game continuing or -1 if the last player made a winning move
+
+        empty_hand = False
+
+        for hand in hands:
+            if len(hand) == 0:
+                empty_hand = True
+
         self.playerTurn = playerTurn
         self.drawCount = 0  # tracks the # of times this player has drawn this turn. only used for logging
         self.public_id = self.get_public_info()
@@ -175,10 +184,8 @@ class GameState():
         if len(self.allowedActions) != 0:
             self.passed[self.playerTurn] = False
 
-        self.isEndGame = self._checkForEndGame()
-        self.value = self._getValue()  # the value is from the POV of the current player. So either 0 for the game continuing or -1 if the last player made a winning move
-
-        
+        if not self.isEndGame and empty_hand:
+            print("empty hand yet game not over")
 
         self.decision_type = 0
 
@@ -522,4 +529,4 @@ class Train:
     
     def get_string(self):
         sorted_doms = sorted(self.doms)
-        return str(sorted_doms) + str(self.marked)
+        return str(sorted_doms) + ', Head: ' + str(self.head) + ', ' + str(self.marked)

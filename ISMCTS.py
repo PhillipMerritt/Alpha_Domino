@@ -14,6 +14,8 @@ import networkx as nx
 #from networkx.drawing.nx_agraph import graphviz_layout
 import matplotlib.pyplot as plt
 import tempfile
+
+from copy import deepcopy
 class Node():
 
 	def __init__(self, state, id):
@@ -86,10 +88,14 @@ class MCTS():
 		value = 0
 		simulationAction = 0
 
-		current_state = self.root.state
+		current_state = deepcopy(self.root.state)
+
+		depth = 0
 
 
 		while not currentNode.isLeaf():
+			depth += 1
+
 			lg.logger_mcts.info('PLAYER TURN...%d', current_state.playerTurn)
 
 			prev_action = simulationAction
@@ -212,6 +218,13 @@ class MCTS():
 			breadcrumbs.append(simulationEdge)
 
 		lg.logger_mcts.info('DONE...%d', done)
+
+		if currentNode == self.root and len(self.root.edges) > 0:
+			print("root seen as leaf in movetoleaf")
+			print("node count: {0}, depth during this sim: {1}".format(len(self.tree), depth))
+			current_state.user_print()
+			self.render()
+			exit(0)
 
 		return currentNode, value, done, breadcrumbs
 
@@ -368,7 +381,7 @@ class MCTS():
 
 			edge.outNode.state.render(lg.logger_mcts)
 
-	def render(self):
+	def render(self, sims='ERROR'):
 		G = nx.DiGraph()
 		edges = self.BFS()
 		for edge in edges:
@@ -379,10 +392,9 @@ class MCTS():
 		#print(G.nodes(data=True))
 		p=nx.drawing.nx_pydot.to_pydot(G)
 		#p.view(tempfile.mktemp('.gv'))  
-		p.write_png('ISMCTS_' + str(config.MCTS_SIMS) + '.png')
+		p.write_png('ISMCTS_' + str(sims) + '.png')
 		
 		#p.write('./')
-		exit(0)
 	# creates a list of edges using a BFS to use for rendering
 	def BFS(self): 
 		all_domino = [(0, 0), (0, 1), (1, 1), (0, 2), (1, 2), (2, 2), (0, 3), (1, 3), (2, 3), (3, 3), (0, 4),
