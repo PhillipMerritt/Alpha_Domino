@@ -228,6 +228,16 @@ class Agent():
 
         for i in range(config.TRAINING_LOOPS):
             minibatch = random.sample(ltmemory, min(config.BATCH_SIZE, len(ltmemory)))
+
+            for mem in minibatch:
+                #print("value: {0}, action_value: {1}".format(mem['value'], mem['AV']))
+                actions_from_mem = np.nonzero(mem['AV'])[0]
+                for action in mem['state'].allowedActions:
+                    if action not in actions_from_mem:
+                        print("action from mem not in state")
+                        print(actions_from_mem)
+                        print(mem['state'].allowedActions)
+                        exit(1)
             
             training_states = np.array([self.model[d_t].convertToModelInput(row['state']) for row in minibatch])
             training_targets = {'value_head': np.array([row['value'] for row in minibatch])

@@ -130,15 +130,8 @@ class Game:
 
         return ((next_state, value, done, info))
 
-    def identities(self, state, actionValues):  # TODO: take out the uneccesary stuff here
+    def identities(self, state, actionValues):  # haven't looked into what this function is doing quite yet
         identities = [(state, actionValues)]
-
-        currentHands = state.hands
-        currentQueue = state.queue
-        currentTrains = state.trains
-        currentAV = actionValues
-
-        identities.append((GameState(currentHands,  currentTrains, currentQueue, state.playerTurn, state.passed), currentAV))
 
         return identities
 

@@ -165,6 +165,7 @@ class MCTS():
 			if simulationAction not in current_state.allowedActions:
 				print("untried: {0}, existing: {1}, legal: {2}".format(untried_actions, existing_untried, legal_actions))
 				print(simulationAction)
+				print(current_state.user_print())
 				print("action error")
 				exit(1)
 
