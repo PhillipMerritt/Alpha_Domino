@@ -4,7 +4,7 @@
 #%autoreload 2
 import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session, set_learning_phase
-set_learning_phase(0)
+#set_learning_phase(0)
 """config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 set_session(tf.Session(config=config))"""
@@ -312,7 +312,7 @@ while 1:
         memory.clear_stmemory()
 
         if len(memory.ltmemory) == MEMORY_SIZE[d_t]:
-            set_learning_phase(1) # tell keras backend that the model will be learning now
+            #set_learning_phase(1) # tell keras backend that the model will be learning now
 
             trained = True
             ######## RETRAINING ########
