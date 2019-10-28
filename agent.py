@@ -174,6 +174,7 @@ class Agent():
         if leaf == self.mcts.root and len(self.mcts.root.edges) > 0:
             print("evaluating root more than once")
             leaf.state.user_print()
+            self.mcts.render()
             exit(1)
 
         if done == 0:

@@ -426,7 +426,7 @@ class MCTS():
 						child_id = i[1].outNode.id
 
 					#edges.append(((s.render_id,i[1].outNode.render_id), i[0]))
-					edges.append(((parent_id, child_id), str(all_domino[i[0]]) + '\n' + str(i[1].stats['Q']))) 
+					edges.append(((parent_id, child_id), str(all_domino[i[0] % 28]) + '\n' + str(i[1].stats['Q']))) 
 					if visited[i[1].outNode.render_id] == False: 
 						queue.append(i[1].outNode) 
 						visited[i[1].outNode.render_id] = True

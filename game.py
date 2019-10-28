@@ -332,8 +332,13 @@ class GameState():
 
         return id
 
-    def get_public_info(self):
-        public_id = ''
+    def get_public_info(self, root = False):
+        public_id = 'Turn: ' + str(self.playerTurn)
+
+        if root:
+            public_id += '|' + str([self.all_domino[dom] for dom in self.hands[self.playerTurn]])
+            public_id += '\n'
+
         for i in range(PLAYER_COUNT):
             public_id += '|' + str(len(self.hands[i]))
         for train in self.trains:
