@@ -166,7 +166,7 @@ class MCTS():
 				print("untried: {0}, existing: {1}, legal: {2}".format(untried_actions, existing_untried, legal_actions))
 				print(simulationAction)
 				print(current_state.user_print())
-				self.render()
+				#self.render()
 				print("action error")
 				exit(1)
 

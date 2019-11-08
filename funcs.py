@@ -72,7 +72,7 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
             print("over before started")
             exit(0)
             
-        print("Starting hands: {0}".format(state.hands))
+        #print("Starting hands: {0}".format(state.hands))
 
         if len(state.allowedActions) == 1:  # if things like bidding at the beginning only give one action go ahead and  automate those w/ env.step
                 state, _, _, _ = env.step(state.allowedActions[0], logger)
