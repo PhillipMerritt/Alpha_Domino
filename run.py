@@ -14,7 +14,7 @@ import os
 
 play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
-all_version_tournament = True   # pit every model against every model below it
+all_version_tournament = False   # pit every model against every model below it
 version_testing = False # pit two models version against eachother 
 ismcts_agent_test = False   # test against the non-NN implementation of ISMCTS
 
@@ -303,7 +303,7 @@ while 1:
     ######## SELF PLAY ########
     print('SELF PLAYING ' + str(config.EPISODES) + ' EPISODES...')
     _, memories, _ = playMatches(best_players, config.EPISODES, lg.logger_main,
-                                  deterministic_play=False, memory=memories)
+                                  1.0, memory=memories)
     print('\n')
     
     full_memory = True
@@ -383,7 +383,7 @@ while 1:
             tourney_players.append(current_player)
 
         scores, _, points = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
-                                                deterministic_play=True)
+                                                0.0)
         print('\nSCORES')
         print(scores)
         print('\n\n')

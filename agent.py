@@ -95,7 +95,7 @@ class Agent():
         end = timer()
         tk.backfill_time += end - start
 
-    def act(self, state, tau):
+    def act(self, state, epsilon):
         state = state.CloneAndRandomize()
         d_t = state.decision_type   # store which decision type this will be
 
@@ -127,7 +127,7 @@ class Agent():
         pi, values = self.getAV(1, d_t)
 
         ####pick the action
-        action, value = self.chooseAction(pi, values, tau)
+        action, value = self.chooseAction(pi, values, epsilon)
 
         start = timer()
         nextState, _, _ = state.takeAction(action)
@@ -210,14 +210,16 @@ class Agent():
         pi = pi / (np.sum(pi) * 1.0)    # divide every value in pi by the sum of all values in pi
         return pi, values
 
-    def chooseAction(self, pi, values, tau):
-        """if tau == 0:"""
-        actions = np.argwhere(pi == max(pi))    # same as np.transpose(np.nonzero(a))
-        action = random.choice(actions)[0]
-        """else:
-        action_idx = np.random.multinomial(1, pi)
+    def chooseAction(self, pi, values, epsilon):
 
-        action = np.where(action_idx == 1)[0][0]"""
+        """if tau == 0:"""
+        if np.random.random() > epsilon:
+            actions = np.argwhere(pi == max(pi))    # same as np.transpose(np.nonzero(a))
+            action = random.choice(actions)[0]
+        else:
+            action_idx = np.random.multinomial(1, pi)
+
+            action = np.where(action_idx == 1)[0][0]
 
         value = values[action]
 

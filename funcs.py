@@ -43,7 +43,7 @@ def playMatchesBetweenVersions(env, run_version_1,run_version_2, player1version,
     return (scores, memory, points, sp_scores)
 
 
-def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goes_first = 0):
+def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0):
     total_time_avg = 0
     env = Game()
     scores = {"drawn": 0}
@@ -52,6 +52,8 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
     #sp_scores = {'sp':0, "drawn": 0, 'nsp':0}
     
     turns = 0
+
+    epsilon_step = 1/EPISODES
 
     games_to_win = (config.SCORING_THRESHOLD * EPISODES) / (1 + config.SCORING_THRESHOLD)
     games_to_block = EPISODES - games_to_win
@@ -102,7 +104,7 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
             if players[turn]["name"] == 'tester' or players[turn]["name"] == 'tester2':
                 action = players[state.playerTurn]['agent'].act(state)
             else:
-                action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
+                action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, epsilon)
 
                 # store decision type from state
             if players[turn]["name"] != 'tester':
@@ -191,6 +193,8 @@ def playMatches(agents, EPISODES, logger, deterministic_play, memory = None, goe
         # if it is a tournament and if either player has won enough games to win break the loop
         if players[1]['name'] == 'current_player' and (scores['best_player'] > games_to_block or scores['current_player'] > games_to_win):
             break
+    
+        epsilon -= epsilon_step
 
     print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
     return (scores, memory, points)
