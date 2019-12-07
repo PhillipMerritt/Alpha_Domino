@@ -204,7 +204,8 @@ class Agent():
         values = np.zeros(self.action_size[decision_type], dtype=np.float32)
 
         for action, edge in edges:
-            pi[action] = pow(edge.stats['N'], 1 / tau)
+            pi[action] = pow(edge.stats['N'], 1 / tau) # TODO: 1/tau ????
+            print(pi[action])
             values[action] = edge.stats['Q']
 
         pi = pi / (np.sum(pi) * 1.0)    # divide every value in pi by the sum of all values in pi
@@ -283,9 +284,10 @@ class Agent():
         self.mcts.root = self.mcts.tree[state.id]
 
 class testing_agent(Agent):
-    def __init__(self, mcts_simulations, name):
+    def __init__(self, mcts_simulations, name, action_size):
         self.name = name
         self.MCTSsimulations = mcts_simulations
+        self.action_size = action_size
         self.mcts = None
         self.cpuct = 0
     
@@ -308,10 +310,13 @@ class testing_agent(Agent):
                 state = state.CloneAndRandomize() # determinize
                 self.mcts.root.state = state
 
+        pi = np.zeros(self.action_size[0], dtype=np.integer)
+
         ####pick the action
         max_visits = 0
         best_actions = []
         for (action, edge) in self.mcts.root.edges:
+            pi[action] = edge.bandit_stats['V']
             if edge.bandit_stats['V'] > max_visits:
                  max_visits = edge.bandit_stats['V']
                  best_actions = [edge.action]
@@ -323,7 +328,7 @@ class testing_agent(Agent):
         end = timer()
         tk.take_action_time += end - start
         
-        return (action)
+        return (action, pi)
 
     # Move to leaf, rollout, backfill
     def simulate(self):

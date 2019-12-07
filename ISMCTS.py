@@ -212,7 +212,10 @@ class MCTS():
 				node.inEdges.append(chosen_edge)
 				simulationEdge = chosen_edge
 
-			value = value_tuple[current_turn % TEAM_SIZE]
+			if TEAM_SIZE > 1:
+				value = value_tuple[current_turn % TEAM_SIZE]
+			else:
+				value = value_tuple[current_turn]
 
 			currentNode = simulationEdge.outNode
 			currentNode.state = newState
@@ -244,7 +247,7 @@ class MCTS():
 		value = 0
 
 		while not currentNode.isLeaf():
-			lg.logger_mcts.info('PLAYER TURN...%d', currentNode.state.playerTurn)
+			#lg.logger_mcts.info('PLAYER TURN...%d', currentNode.state.playerTurn)
 		
 			# update the parent visits for each edge from currentNode
 			for (action, edge) in currentNode.edges:
@@ -252,7 +255,7 @@ class MCTS():
 
 			max_ucb = -99999
 
-			untried_actions, existing_untried, legal_actions = self.getUntriedActions(currentNode)	
+			untried_actions, existing_untried, legal_actions = self.getUntriedActions(currentNode, currentNode.state.allowedActions)	
 			
 			if untried_actions == []:	# if all actions have been explored update the stats of currentNode's edges and choose the highest Q+U
 				for idx, (action, edge) in enumerate(currentNode.edges):
@@ -289,32 +292,26 @@ class MCTS():
 
 				# TODO: averaging prior probability with new probability
 
-				lg.logger_mcts.info('Untried action: %d', simulationAction)
+				#lg.logger_mcts.info('Untried action: %d', simulationAction)
 
 
 			
 
-			start = timer()
 			newState, value_tuple, done = currentNode.state.takeAction(simulationAction) #the value of the newState from the POV of the new playerTurn
-			end = timer()
-			tk.take_action_time += end - start
 
 			# if a new action is being explored add the resulting node to the tree
 			# and store that node in the corresponding edge's outNode as well as the
 			# edge in the node's inEdge
 			if untried_actions != []:
-				if newState.playerTurn == self.root.playerTurn:
-					id = newState.id
-				else:
-					id = newState.get_public_info()
+				id = newState.id
 				
 				if id not in self.tree:
 					node = Node(newState, id)
 					self.addNode(node)
-					lg.logger_mcts.info('added node...%s', node.id)
+					#lg.logger_mcts.info('added node...%s', node.id)
 				else:
 					node = self.tree[id]
-					lg.logger_mcts.info('existing node...%s',node.id)
+					#lg.logger_mcts.info('existing node...%s',node.id)
 					node.state = newState
 
 				chosen_edge.outNode = node
@@ -331,13 +328,25 @@ class MCTS():
 
 		#Rollout
 		state = currentNode.state
+		value_tuple = state.value
 		terminal = state.isEndGame
 		while not terminal:
-			temp_action = np.random.choice(state.allowedActions)
+			if state.allowedActions == []:
+				temp_action = -1
+			else:
+				temp_action = np.random.choice(state.allowedActions)
 			state, value_tuple, terminal = state.takeAction(temp_action)
 
-		value = value_tuple[newState.playerTurn % TEAM_SIZE]
-
+		try:
+			if TEAM_SIZE > 1:
+				value = value_tuple[newState.playerTurn % TEAM_SIZE]
+			else:
+				value = value_tuple[newState.playerTurn]
+		except:
+			if TEAM_SIZE > 1:
+				value = value_tuple[currentNode.state.playerTurn % TEAM_SIZE]
+			else:
+				value = value_tuple[currentNode.state.playerTurn]
 		return currentNode, value, done, breadcrumbs
 
 	def backFill(self, leaf, value, breadcrumbs):

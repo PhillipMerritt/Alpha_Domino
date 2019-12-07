@@ -206,6 +206,103 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
     print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
     return (scores, memory, points)
 
+def fillMem(agents, memory):
+    total_time_avg = 0
+    env = Game()
+    scores = {"drawn": 0}
+    for i in range(PLAYER_COUNT):
+        scores[agents[i].name] = 0
+    #sp_scores = {'sp':0, "drawn": 0, 'nsp':0}
+    games = 0
+
+    while len(memory[0].ltmemory) < memory[0].MEMORY_SIZE:
+        games += 1
+
+        state = env.reset()
+            
+        #print("Starting hands: {0}".format(state.hands))
+
+        if len(state.allowedActions) == 1:  # if things like bidding at the beginning only give one action go ahead and  automate those w/ env.step
+                state, _, _, _ = env.step(state.allowedActions[0])
+        
+        done = 0
+        players = {}
+
+        for i,player in enumerate(agents):
+            player.mcts = None
+            players[i] = {"agent": player, "name": player.name}
+
+        start_game = timer()
+
+        while not done:
+            #print("turn: {0}".format(turns))
+            d_t = state.decision_type
+            turn = state.playerTurn
+            #### Run the MCTS algo and return an action
+
+            action, pi = players[state.playerTurn]['agent'].act(state)
+            
+                # store decision type from state
+            if memory != None and memory[d_t] != None:
+                ####Commit the move to memory
+                memory[d_t].commit_stmemory(env.identities, state, pi)
+
+            state, value, done, _ = env.step(action) # the value is [1,-1] if team/player 0 won or the opposite if team/player 1 won otherwise it's [0,0]
+            
+            #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
+
+            if done == 1:
+                winning_team = int(np.argmax(value))
+                if TEAM_SIZE > 1:
+                    winning_team = winning_team % TEAM_SIZE
+
+                if memory != None:
+                    #### If the game is finished, assign the values to the history of moves from the game
+                    for d_t in range(config.DECISION_TYPES):
+                        if memory[d_t] != None:
+                            for move in memory[d_t].stmemory:
+                                #if move['playerTurn'] % int(PLAYER_COUNT/TEAM_SIZE) == winning_team:
+                                if TEAM_SIZE > 1:
+                                    if move['playerTurn'] % TEAM_SIZE == winning_team:
+                                        move['value'] = 1
+                                    else:
+                                        move['value'] = -1
+                                else:
+                                    if move['playerTurn'] == winning_team:
+                                        move['value'] = 1
+                                    else:
+                                        move['value'] = -1
+
+                    for i in range(config.DECISION_TYPES):
+                        if memory[i] != None:
+                            memory[i].commit_ltmemory()
+             
+                if value[0] == 1:
+                    scores[players[0]['name']] = scores[players[0]['name']] + 1
+                elif value[1] == 1:
+                    scores[players[1]['name']] = scores[players[1]['name']] + 1
+                else:
+                    scores['drawn'] = scores['drawn'] + 1
+                    #sp_scores['drawn'] = sp_scores['drawn'] + 1
+        print('.')
+
+
+        end_game = timer()
+        tk.total_game_time = end_game - start_game
+        total_time_avg += tk.total_game_time
+        #tk.print_ratios(tk.total_game_time, tk.move_to_leaf_time, tk.evaluate_leaf_time, tk.get_preds_time, tk.backfill_time, tk.take_action_time, tk.predict_time)
+        tk.total_game_time = 0 
+        tk.move_to_leaf_time = 0
+        tk.evaluate_leaf_time = 0 
+        tk.get_preds_time = 0 
+        tk.backfill_time = 0 
+        tk.take_action_time = 0 
+        tk.predict_time = 0
+
+
+    print("Avg game time: {0}".format(total_time_avg/games))
+    return memory    
+
 def version_tournament(agents, EPISODES, logger):
     total_time_avg = 0
     env = Game()

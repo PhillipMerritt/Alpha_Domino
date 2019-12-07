@@ -52,7 +52,7 @@ from agent import Agent, testing_agent
 from agent import User
 from memory import Memory
 from model import Residual_CNN
-from funcs import playMatches, playMatchesBetweenVersions, version_tournament
+from funcs import *
 
 import loggers as lg
 import logging
@@ -279,6 +279,8 @@ if play_vs_agent:
 
     playMatches(players,1,lg.logger_main,0)
     exit(0)
+
+memories = fillMem([testing_agent(config.MCTS_SIMS, 'tester1', env.action_size), testing_agent(150, 'tester2', env.action_size)], memories)
 
 trained = False
 
