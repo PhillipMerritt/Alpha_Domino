@@ -284,7 +284,7 @@ def fillMem(agents, memory):
                 else:
                     scores['drawn'] = scores['drawn'] + 1
                     #sp_scores['drawn'] = sp_scores['drawn'] + 1
-        print('.')
+        print('.',end='')
 
 
         end_game = timer()
