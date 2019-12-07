@@ -136,7 +136,8 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
 
             if done == 1 and players[turn]["name"] != 'tester':
                 winning_team = int(np.argmax(value))
-                winning_team = winning_team % TEAM_SIZE
+                if TEAM_SIZE > 1:
+                    winning_team = winning_team % TEAM_SIZE
 
                 if memory != None:
                     #### If the game is finished, assign the values to the history of moves from the game
@@ -144,10 +145,16 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
                         if memory[d_t] != None:
                             for move in memory[d_t].stmemory:
                                 #if move['playerTurn'] % int(PLAYER_COUNT/TEAM_SIZE) == winning_team:
-                                if move['playerTurn'] % TEAM_SIZE == winning_team:
-                                    move['value'] = 1
+                                if TEAM_SIZE > 1:
+                                    if move['playerTurn'] % TEAM_SIZE == winning_team:
+                                        move['value'] = 1
+                                    else:
+                                        move['value'] = -1
                                 else:
-                                    move['value'] = -1
+                                    if move['playerTurn'] == winning_team:
+                                        move['value'] = 1
+                                    else:
+                                        move['value'] = -1
 
                     for i in range(config.DECISION_TYPES):
                         if memory[i] != None:
@@ -195,6 +202,109 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
             break
     
         epsilon -= epsilon_step
+
+    print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
+    return (scores, memory, points)
+
+def version_tournament(agents, EPISODES, logger):
+    total_time_avg = 0
+    env = Game()
+    scores = {"drawn": 0}
+    for i in range(PLAYER_COUNT):
+        scores[agents[i].name] = 0
+    #sp_scores = {'sp':0, "drawn": 0, 'nsp':0}
+
+    turns = 0
+
+    epsilon_step = 1/EPISODES
+
+    games_to_win = (config.SCORING_THRESHOLD * EPISODES) / (1 + config.SCORING_THRESHOLD)
+    games_to_block = EPISODES - games_to_win
+
+    for e in range(EPISODES):
+
+        state = env.reset()
+        
+        
+        if state.isEndGame:
+            print("over before started")
+            exit(0)
+            
+        #print("Starting hands: {0}".format(state.hands))
+
+        if len(state.allowedActions) == 1:  # if things like bidding at the beginning only give one action go ahead and  automate those w/ env.step
+                state, _, _, _ = env.step(state.allowedActions[0], logger)
+        
+        done = 0
+        players = {}
+        points = {}
+
+        for i,player in enumerate(agents):
+            player.mcts = None
+            players[i] = {"agent": player, "name": player.name}
+            points[i] = []
+
+        env.gameState.render(logger)
+        start_game = timer()
+
+        while done == 0:
+            #print("turn: {0}".format(turns))
+            turns = turns + 1 # turns until tao tracker
+
+            if len(state.allowedActions) < 2:
+                print("funcs loop, no choices")
+
+            d_t = state.decision_type
+            turn = state.playerTurn
+            #### Run the MCTS algo and return an action
+            if players[turn]["name"] == 'low_agent':
+                 action = random.choice(state.allowedActions)
+            else:
+                if players[turn]["name"] == 'tester' or players[turn]["name"] == 'tester2':
+                    action = players[state.playerTurn]['agent'].act(state)
+                else:
+                    action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
+
+            
+
+
+            if action not in state.allowedActions:
+                print("error in funcs")
+            ### Do the action
+            turn = state.playerTurn
+
+            #print("from funcs")
+            if players[state.playerTurn]['name'] == 'user':
+                state, value, done, _ = env.step(action, logger, True)  # this parameter tells the gameState to print out automated turns for the user's convenience
+            else:
+                state, value, done, _ = env.step(action, logger) # the value is [1,-1] if team/player 0 won or the opposite if team/player 1 won otherwise it's [0,0]
+            
+            #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
+
+            if done == 1 and players[turn]["name"] != 'tester':
+                winning_team = int(np.argmax(value))
+                if TEAM_SIZE > 1:
+                    winning_team = winning_team % TEAM_SIZE
+
+                scores[players[winning_team]['name']] += 1
+                print("High Agent Wins: {0}, Low Agent Wins: {1}".format(scores['high_agent'], scores['low_agent']))
+
+        end_game = timer()
+        tk.total_game_time = end_game - start_game
+        total_time_avg += tk.total_game_time
+        #tk.print_ratios(tk.total_game_time, tk.move_to_leaf_time, tk.evaluate_leaf_time, tk.get_preds_time, tk.backfill_time, tk.take_action_time, tk.predict_time)
+        tk.total_game_time = 0 
+        tk.move_to_leaf_time = 0
+        tk.evaluate_leaf_time = 0 
+        tk.get_preds_time = 0 
+        tk.backfill_time = 0 
+        tk.take_action_time = 0 
+        tk.predict_time = 0
+
+        # if it is a tournament and if either player has won enough games to win break the loop
+        if players[1]['name'] == 'current_player' and (scores['best_player'] > games_to_block or scores['current_player'] > games_to_win):
+            break
+    
 
     print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
     return (scores, memory, points)

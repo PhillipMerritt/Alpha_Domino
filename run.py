@@ -14,7 +14,6 @@ import os
 
 play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
-all_version_tournament = False   # pit every model against every model below it
 version_testing = False # pit two models version against eachother 
 ismcts_agent_test = False   # test against the non-NN implementation of ISMCTS
 
@@ -53,7 +52,7 @@ from agent import Agent, testing_agent
 from agent import User
 from memory import Memory
 from model import Residual_CNN
-from funcs import playMatches, playMatchesBetweenVersions
+from funcs import playMatches, playMatchesBetweenVersions, version_tournament
 
 import loggers as lg
 import logging
@@ -63,7 +62,7 @@ import initialise
 import pickle
 
 import config
-from config import PLAYER_COUNT, TEAM_SIZE, DECISION_TYPES, MEMORY_SIZE
+from config import PLAYER_COUNT, TEAM_SIZE, DECISION_TYPES, MEMORY_SIZE, ALL_VERSION_TOURNAMENT
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -100,7 +99,7 @@ if ismcts_agent_test:
     exit(0)
 
 # plays every model version up to the value of high against every 5th version below it
-if all_version_tournament:
+if ALL_VERSION_TOURNAMENT:
     handler = logging.FileHandler(run_folder + 'logs/logger_all_version_tournament.log')
 
     logger_all_version_tournament = logging.getLogger('logger_all_version_tournament')
@@ -118,9 +117,9 @@ if all_version_tournament:
         high_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
                                     config.HIDDEN_CNN_LAYERS, i))
 
-    high = 30
-    matches = 200
-    while high <= 31:
+    high = 32
+    matches = 100
+    while high <= 32:
         low = 0
         # load high model
         print('LOADING HIGH VERSION ' + str(high) + '...')
@@ -156,7 +155,7 @@ if all_version_tournament:
             #players.append(low_agent)
 
             # play 50 games
-            scores, _, _ = playMatches(players,matches,lg.logger_main,0)
+            scores, _, _ = version_tournament(players,matches,lg.logger_main)
             win_perc = round(100 * (scores['high_agent'] / matches),2)
             logger_all_version_tournament.info("{0}\t{1}\t{2}".format(high,low,win_perc))
             print("{0} vs. {1}, high win %: {2}".format(high,low,win_perc))
@@ -344,7 +343,7 @@ while 1:
 
                 s['state'].render(lg.logger_memory)
             
-            set_learning_phase(0)   # set learning phase back to 0
+            #set_learning_phase(0)   # set learning phase back to 0
 
             #if len(memory.ltmemory) < MEMORY_SIZE[d_t]:
                 #full_memory = False
