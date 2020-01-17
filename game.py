@@ -46,7 +46,6 @@ class Game:
             if not self.gameState.isEndGame:
                 break
             else:
-                print("{0}: remaking game due to no choices".format(count))
                 count += 1
 
         return self.gameState

@@ -102,7 +102,7 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
             turn = state.playerTurn
             #### Run the MCTS algo and return an action
             if players[turn]["name"] == 'tester' or players[turn]["name"] == 'tester2':
-                action = players[state.playerTurn]['agent'].act(state)
+                action, _ = players[state.playerTurn]['agent'].act(state)
             else:
                 action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, epsilon)
 
@@ -215,7 +215,11 @@ def fillMem(agents, memory):
     #sp_scores = {'sp':0, "drawn": 0, 'nsp':0}
     games = 0
 
+    print("Filling memory")
+
     while len(memory[0].ltmemory) < memory[0].MEMORY_SIZE:
+        sys.stdout.flush()
+        print ('.', end='')
         games += 1
 
         state = env.reset()
@@ -284,7 +288,6 @@ def fillMem(agents, memory):
                 else:
                     scores['drawn'] = scores['drawn'] + 1
                     #sp_scores['drawn'] = sp_scores['drawn'] + 1
-        print('.',end='')
 
 
         end_game = timer()
@@ -358,7 +361,7 @@ def version_tournament(agents, EPISODES, logger):
                  action = random.choice(state.allowedActions)
             else:
                 if players[turn]["name"] == 'tester' or players[turn]["name"] == 'tester2':
-                    action = players[state.playerTurn]['agent'].act(state)
+                    action, _ = players[state.playerTurn]['agent'].act(state)
                 else:
                     action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
 
@@ -384,7 +387,7 @@ def version_tournament(agents, EPISODES, logger):
                     winning_team = winning_team % TEAM_SIZE
 
                 scores[players[winning_team]['name']] += 1
-                print("High Agent Wins: {0}, Low Agent Wins: {1}".format(scores['high_agent'], scores['low_agent']))
+                print(scores)
 
         end_game = timer()
         tk.total_game_time = end_game - start_game

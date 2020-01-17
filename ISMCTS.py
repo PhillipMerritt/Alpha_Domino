@@ -317,8 +317,10 @@ class MCTS():
 				chosen_edge.outNode = node
 				node.inEdges.append(chosen_edge)
 				simulationEdge = chosen_edge
-
-			value = value_tuple[newState.playerTurn % TEAM_SIZE]
+			if TEAM_SIZE > 1:
+				value = value_tuple[newState.playerTurn % TEAM_SIZE]
+			else:
+				value = value_tuple[newState.playerTurn]
 
 			currentNode = simulationEdge.outNode
 			currentNode.state = newState
@@ -337,16 +339,11 @@ class MCTS():
 				temp_action = np.random.choice(state.allowedActions)
 			state, value_tuple, terminal = state.takeAction(temp_action)
 
-		try:
-			if TEAM_SIZE > 1:
-				value = value_tuple[newState.playerTurn % TEAM_SIZE]
-			else:
-				value = value_tuple[newState.playerTurn]
-		except:
-			if TEAM_SIZE > 1:
-				value = value_tuple[currentNode.state.playerTurn % TEAM_SIZE]
-			else:
-				value = value_tuple[currentNode.state.playerTurn]
+		if TEAM_SIZE > 1:
+			value = value_tuple[currentNode.state.playerTurn % TEAM_SIZE]
+		else:
+			value = value_tuple[currentNode.state.playerTurn]
+
 		return currentNode, value, done, breadcrumbs
 
 	def backFill(self, leaf, value, breadcrumbs):
@@ -356,7 +353,7 @@ class MCTS():
 
 		for edge in breadcrumbs:
 			playerTurn = edge.playerTurn
-			if playerTurn == currentPlayer or playerTurn == (currentPlayer + 2) % 4:	# added the or to set the values to positive for currentPlayer's partner
+			if playerTurn == currentPlayer or (TEAM_SIZE > 1 and playerTurn % TEAM_SIZE == currentPlayer % TEAM_SIZE):	# added the or to set the values to positive for currentPlayer's partner
 				direction = 1
 			else:
 				direction = -1
@@ -382,10 +379,16 @@ class MCTS():
 
 		for edge in breadcrumbs:
 			playerTurn = edge.playerTurn
-			if playerTurn % 2 == currentPlayer:	# added the or to set the values to positive for currentPlayer's partner
-				direction = 1
+			if TEAM_SIZE > 1:
+				if playerTurn % 2 == currentPlayer:	# added the or to set the values to positive for currentPlayer's partner
+					direction = 1
+				else:
+					direction = -1
 			else:
-				direction = -1
+				if playerTurn % 2 == currentPlayer:	# added the or to set the values to positive for currentPlayer's partner
+					direction = 1
+				else:
+					direction = -1
 
 			edge.bandit_stats['V'] += 1
 			edge.bandit_stats['R'] += direction
