@@ -102,7 +102,7 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
             turn = state.playerTurn
             #### Run the MCTS algo and return an action
             if players[turn]["name"] == 'tester' or players[turn]["name"] == 'tester2':
-                action = players[state.playerTurn]['agent'].act(state)
+                action, pi = players[state.playerTurn]['agent'].act(state)
             else:
                 action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, epsilon)
 
@@ -358,17 +358,14 @@ def version_tournament(agents, EPISODES, logger):
                  action = random.choice(state.allowedActions)
             else:
                 if players[turn]["name"] == 'tester' or players[turn]["name"] == 'tester2':
-                    action = players[state.playerTurn]['agent'].act(state)
+                    action, pi = players[state.playerTurn]['agent'].act(state)
                 else:
                     action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
-
-            
 
 
             if action not in state.allowedActions:
                 print("error in funcs")
             ### Do the action
-            turn = state.playerTurn
 
             #print("from funcs")
             if players[state.playerTurn]['name'] == 'user':

@@ -15,7 +15,7 @@ import os
 play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
 version_testing = False # pit two models version against eachother 
-ismcts_agent_test = False   # test against the non-NN implementation of ISMCTS
+ismcts_agent_test = True   # test against the non-NN implementation of ISMCTS
 
 
 ############ Set debugging to true to delete the log folders every time you run the program
@@ -79,8 +79,8 @@ if initialise.INITIAL_RUN_NUMBER != None:
              './config.py')
 
 if ismcts_agent_test:
-    testing_agent_1 = testing_agent(150, 'tester')
-    testing_agent_2 = testing_agent(150, 'tester2')
+    testing_agent_1 = testing_agent(150, 'tester', env.action_size)
+    testing_agent_2 = testing_agent(150, 'tester2', env.action_size)
     user = User("User1", env.state_size, env.action_size)
     low_NN = []
     for i in range(DECISION_TYPES):
@@ -92,9 +92,9 @@ if ismcts_agent_test:
     low_agent2 = Agent('low_agent2', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, low_NN)
 
 
-    players = [testing_agent_1, low_agent, testing_agent_1, low_agent]
+    players = [low_agent, testing_agent_1]
 
-    scores, _, _ = playMatches(players,100,lg.logger_main,0)
+    scores, _, _ = playMatches(players,20,lg.logger_main,0)
     print(scores)
     exit(0)
 

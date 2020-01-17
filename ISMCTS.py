@@ -265,8 +265,7 @@ class MCTS():
 						#calculate UCB1 value for each edge
 						# (total reward / # of visits) + exploration_constant * sqrt(log(# of parent visits)/# of visits)
 
-						ucb_temp = (edge.bandit_stats['R'] / visits) \
-							+ 0.7 * np.math.sqrt(np.math.log(edge.bandit_stats['P']) / visits)
+						ucb_temp = (edge.bandit_stats['R'] / visits) + 0.7 * np.math.sqrt(np.math.log(edge.bandit_stats['P']) / visits)
 						#only hold the MAX UCB value and then move on to next (action, edge)
 						if ucb_temp > max_ucb:
 							max_ucb = ucb_temp
@@ -337,16 +336,12 @@ class MCTS():
 				temp_action = np.random.choice(state.allowedActions)
 			state, value_tuple, terminal = state.takeAction(temp_action)
 
-		try:
-			if TEAM_SIZE > 1:
-				value = value_tuple[newState.playerTurn % TEAM_SIZE]
-			else:
-				value = value_tuple[newState.playerTurn]
-		except:
-			if TEAM_SIZE > 1:
-				value = value_tuple[currentNode.state.playerTurn % TEAM_SIZE]
-			else:
-				value = value_tuple[currentNode.state.playerTurn]
+		
+		if TEAM_SIZE > 1:
+			value = value_tuple[currentNode.state.playerTurn % TEAM_SIZE]
+		else:
+			value = value_tuple[currentNode.state.playerTurn]
+
 		return currentNode, value, done, breadcrumbs
 
 	def backFill(self, leaf, value, breadcrumbs):

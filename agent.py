@@ -205,7 +205,7 @@ class Agent():
 
         for action, edge in edges:
             pi[action] = pow(edge.stats['N'], 1 / tau) # TODO: 1/tau ????
-            print(pi[action])
+            #print(pi[action])
             values[action] = edge.stats['Q']
 
         pi = pi / (np.sum(pi) * 1.0)    # divide every value in pi by the sum of all values in pi
@@ -319,16 +319,11 @@ class testing_agent(Agent):
             pi[action] = edge.bandit_stats['V']
             if edge.bandit_stats['V'] > max_visits:
                  max_visits = edge.bandit_stats['V']
-                 best_actions = [edge.action]
+                 best_actions = [action]
             elif edge.bandit_stats['V'] == max_visits:
                 best_actions.append(action)
-
-        start = timer()
-        nextState, _, _ = state.takeAction(action)
-        end = timer()
-        tk.take_action_time += end - start
         
-        return (action, pi)
+        return (np.random.choice(best_actions), pi)
 
     # Move to leaf, rollout, backfill
     def simulate(self):
