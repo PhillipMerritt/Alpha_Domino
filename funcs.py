@@ -365,13 +365,10 @@ def version_tournament(agents, EPISODES, logger):
                 else:
                     action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
 
-            
-
 
             if action not in state.allowedActions:
                 print("error in funcs")
             ### Do the action
-            turn = state.playerTurn
 
             #print("from funcs")
             if players[state.playerTurn]['name'] == 'user':

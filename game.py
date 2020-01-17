@@ -110,6 +110,9 @@ class Game:
 
     # once an action has been chosen this function is called and it keeps making actions until their is a choice to be made
     def step(self, action, logger = None):  # game state makes the chosen action and returns the next state, the value of the next state for the active player in that state, and whether or not the game is over
+        if type(action) == tuple:
+            print(action)
+            exit(0)
         while 1:
             next_state, value, done = self.gameState.takeAction(
                 action)  # value is always 0 unless the game is over. Otherwise it is -1 since the last player made a winning move
