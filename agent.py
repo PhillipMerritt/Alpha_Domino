@@ -243,8 +243,7 @@ class Agent():
                         exit(1)
             
             training_states = np.array([self.model[d_t].convertToModelInput(row['state']) for row in minibatch])
-            training_targets = {'value_head': np.array([row['value'] for row in minibatch])
-                , 'policy_head': np.array([row['AV'] for row in minibatch])}
+            training_targets = {'value_head': np.array([row['value'] for row in minibatch])}
 
             fit = self.model[d_t].fit(training_states, training_targets, epochs=config.EPOCHS, verbose=1, validation_split=0,
                                  batch_size=32)
@@ -252,13 +251,11 @@ class Agent():
 
             self.train_overall_loss[d_t].append(round(fit.history['loss'][config.EPOCHS - 1], 4))
             self.train_value_loss[d_t].append(round(fit.history['value_head_loss'][config.EPOCHS - 1], 4))
-            self.train_policy_loss[d_t].append(round(fit.history['policy_head_loss'][config.EPOCHS - 1], 4))
 
         plt.plot(self.train_overall_loss[d_t], 'k')
         plt.plot(self.train_value_loss[d_t], 'k:')
-        plt.plot(self.train_policy_loss[d_t], 'k--')
 
-        plt.legend(['train_overall_loss', 'train_value_loss', 'train_policy_loss'], loc='lower left')
+        plt.legend(['train_overall_loss', 'train_value_loss'], loc='lower left')
 
         display.clear_output(wait=True)
         display.display(pl.gcf())

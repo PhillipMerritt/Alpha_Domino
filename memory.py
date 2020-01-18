@@ -13,8 +13,7 @@ class Memory:
 	def commit_stmemory(self, identities, state, actionValues):
 		for r in identities(state, actionValues):
 			self.stmemory.append({
-				'AV': r[1]
-				, 'Decision Type': r[0].decision_type
+				'Decision Type': r[0].decision_type
 				, 'playerTurn': state.playerTurn
 				, 'state': r[0]
 				})
