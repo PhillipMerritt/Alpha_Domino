@@ -15,7 +15,7 @@ import os
 play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
 version_testing = False # pit two models version against eachother 
-ismcts_agent_test = True   # test against the non-NN implementation of ISMCTS
+ismcts_agent_test = False   # test against the non-NN implementation of ISMCTS
 
 
 ############ Set debugging to true to delete the log folders every time you run the program
