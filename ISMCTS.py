@@ -382,7 +382,7 @@ class MCTS():
 				if playerTurn % 2 == currentPlayer:	# added the or to set the values to positive for currentPlayer's partner
 					direction = 1
 				else:
-					direction giy-1
+					direction =-1
 			else:
 				if playerTurn % 2 == currentPlayer:	# added the or to set the values to positive for currentPlayer's partner
 					direction = 1
