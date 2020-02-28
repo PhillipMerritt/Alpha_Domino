@@ -118,4 +118,5 @@ games/archive/
 __pycache__/
 *.pyc
 .vscode/*
+.vscode/
 *.png
