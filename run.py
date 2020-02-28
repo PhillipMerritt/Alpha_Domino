@@ -32,15 +32,15 @@ if debugging:
 
 import numpy as np
 np.set_printoptions(suppress=True)
-seed = 808 # np.random.random_integers(0,5000)
+#seed = 808 # np.random.random_integers(0,5000)
 #print(seed)
-np.random.seed(seed=seed)
+#np.random.seed(seed=seed)
 
 from shutil import copyfile
 import random
-py_seed = 967 #random.randint(0,1000)
+#py_seed = 967 #random.randint(0,1000)
 #print("Python seed: {0}".format(py_seed))
-random.seed(py_seed)
+#random.seed(py_seed)
 from importlib import reload
 import sys
 
@@ -79,7 +79,7 @@ if initialise.INITIAL_RUN_NUMBER != None:
              './config.py')
 
 if ismcts_agent_test:
-    testing_agent = testing_agent(150, 'tester',env.action_size)
+    testing_agent = testing_agent(100, 'tester',env.action_size)
     user = User("User1", env.state_size, env.action_size)
     low_NN = []
     for i in range(DECISION_TYPES):
@@ -93,12 +93,12 @@ if ismcts_agent_test:
 
     players = [testing_agent, low_agent]
 
-    scores, _, _ = version_tournament(players,100,lg.logger_main)
+    scores, _ = version_tournament(players,500,lg.logger_main)
     print(scores)
     exit(0)
 
 # plays every model version up to the value of high against every 5th version below it
-if ALL_VERSION_TOURNAMENT:
+if False:
     handler = logging.FileHandler(run_folder + 'logs/logger_all_version_tournament.log')
 
     logger_all_version_tournament = logging.getLogger('logger_all_version_tournament')
@@ -116,9 +116,9 @@ if ALL_VERSION_TOURNAMENT:
         high_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
                                     config.HIDDEN_CNN_LAYERS, i))
 
-    high = 32
-    matches = 100
-    while high <= 32:
+    high = 52
+    matches = 1000
+    while high <= 52:
         low = 0
         # load high model
         print('LOADING HIGH VERSION ' + str(high) + '...')
@@ -154,11 +154,11 @@ if ALL_VERSION_TOURNAMENT:
             #players.append(low_agent)
 
             # play 50 games
-            scores, _, _ = version_tournament(players,matches,lg.logger_main)
+            scores, _ = version_tournament(players,matches,lg.logger_main)
             win_perc = round(100 * (scores['high_agent'] / matches),2)
             logger_all_version_tournament.info("{0}\t{1}\t{2}".format(high,low,win_perc))
             print("{0} vs. {1}, high win %: {2}".format(high,low,win_perc))
-
+            exit(0)
             low += 10
         high += 20
     exit(0)
@@ -279,9 +279,11 @@ if play_vs_agent:
     playMatches(players,1,lg.logger_main,0)
     exit(0)
 
-memories = fillMem([testing_agent(config.MCTS_SIMS, 'tester1', env.action_size), testing_agent(150, 'tester2', env.action_size)], memories)
+if len(memories[0].ltmemory) == 0:
+    memories = fillMem([testing_agent(config.MCTS_SIMS, 'tester1', env.action_size), testing_agent(config.MCTS_SIMS, 'tester2', env.action_size)], memories)
 
 trained = False
+epsilon = init_epsilon = 0.75
 
 while 1:
 
@@ -303,8 +305,9 @@ while 1:
     ######## SELF PLAY ########
     print('SELF PLAYING ' + str(config.EPISODES) + ' EPISODES...')
     _, memories, _ = playMatches(best_players, config.EPISODES, lg.logger_main,
-                                  1.0, memory=memories)
+                                  epsilon, memory=memories)
     print('\n')
+    epsilon -= init_epsilon / 200.0
     
     full_memory = True
 
@@ -327,7 +330,7 @@ while 1:
             lg.logger_memory.info('NEW MEMORIES')
             lg.logger_memory.info('====================')
 
-            memory_samp = random.sample(memory.ltmemory, min(1000, len(memory.ltmemory)))
+            """memory_samp = random.sample(memory.ltmemory, min(1000, len(memory.ltmemory)))
 
             for s in memory_samp:
                 current_value, current_probs, _ = current_player.get_preds(s['state'],d_t)
@@ -342,7 +345,7 @@ while 1:
                 lg.logger_memory.info('ID: %s', s['state'].id)
                 lg.logger_memory.info('INPUT TO MODEL: %s', current_player.model[d_t].convertToModelInput(s['state']))
 
-                s['state'].render(lg.logger_memory)
+                s['state'].render(lg.logger_memory)"""
             
             #set_learning_phase(0)   # set learning phase back to 0
 

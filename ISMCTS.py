@@ -79,72 +79,50 @@ class MCTS():
 	# then return that node
 	def moveToLeaf(self, agent):
 
-		lg.logger_mcts.info('------MOVING TO LEAF------')
-
 		breadcrumbs = []
 		currentNode = self.root
 
+		if currentNode.edges == []:
+			for action in currentNode.state.allowedActions:
+				new_edge = Edge(currentNode, None, action)
+				currentNode.edges.append((action, new_edge))
+	
+
 		done = 0
 		value = 0
-		simulationAction = 0
-
-		current_state = deepcopy(self.root.state)
-
-		depth = 0
-
 
 		while not currentNode.isLeaf():
-			depth += 1
-
-			lg.logger_mcts.info('PLAYER TURN...%d', current_state.playerTurn)
-
-			prev_action = simulationAction
+			#lg.logger_mcts.info('PLAYER TURN...%d', currentNode.state.playerTurn)
 		
-			maxQU = -99999
+			# update the parent visits for each edge from currentNode
+			for (action, edge) in currentNode.edges:
+				edge.bandit_stats['P'] += 1
 
-			if currentNode == self.root:
-				epsilon = config.EPSILON
-				nu = np.random.dirichlet([config.ALPHA] * len(currentNode.edges))	# creates a list of random weights based on the value of ALPHA
-			else:
-				epsilon = 0
-				nu = [0] * len(currentNode.edges)
+			max_ucb = -99999
 
-			untried_actions, existing_untried, legal_actions = self.getUntriedActions(currentNode, current_state.allowedActions)	
+			untried_actions, existing_untried, legal_actions = self.getUntriedActions(currentNode, currentNode.state.allowedActions)	
 			
 			if untried_actions == []:	# if all actions have been explored update the stats of currentNode's edges and choose the highest Q+U
-				Nb = 0					# Nb is the total number of actions taken from state
-
-				for action, edge in currentNode.edges:	
-					Nb = Nb + edge.stats['N']
-
 				for idx, (action, edge) in enumerate(currentNode.edges):
 					if action in legal_actions:	#TODO: make legal actions a dict
-						#function to generate U value, CPUCT is exploration factor, epsilon and nu[i] = 0 for non root states
-						U = self.cpuct * \
-							((1-epsilon) * edge.stats['P'] + epsilon * nu[idx] )  * \
-							np.sqrt(Nb) / (1 + edge.stats['N'])
-							
-						Q = edge.stats['Q']
-						
-						lg.logger_mcts.info('action: %d (%d)... N = %d, P = %f, nu = %f, adjP = %f, W = %f, Q = %f, U = %f, Q+U = %f'
-							, action, action % 7, edge.stats['N'], np.round(edge.stats['P'],6), np.round(nu[idx],6), ((1-epsilon) * edge.stats['P'] + epsilon * nu[idx] )
-							, np.round(edge.stats['W'],6), np.round(Q,6), np.round(U,6), np.round(Q+U,6))
-						#only hold the MAX Q + U value and then move on to next (action, edgegh)
-						if Q + U > maxQU:
-							maxQU = Q + U
+						visits = edge.bandit_stats['V']
+
+						#calculate UCB1 value for each edge
+						# (total reward / # of visits) + exploration_constant * sqrt(log(# of parent visits)/# of visits)
+
+						ucb_temp = (edge.bandit_stats['R'] / visits) + 0.7 * np.math.sqrt(np.math.log(edge.bandit_stats['P']) / visits)
+						#only hold the MAX UCB value and then move on to next (action, edge)
+						if ucb_temp > max_ucb:
+							max_ucb = ucb_temp
 							simulationAction = action
 							simulationEdge = edge
-
-				lg.logger_mcts.info('action with highest Q + U...%d', simulationAction)
 			elif not currentNode.isLeaf():	# if there are untried actions choose a random one then get predictions for ALL available actions and update the old predictions
 				simulationAction = np.random.choice(untried_actions)
-				_, probs, _ = agent.get_preds(currentNode.state, currentNode.state.decision_type)
-
 				chosen_edge = None
 
-				for i, action in enumerate(legal_actions):	# insert new action edge pairs into currentNode.edges
+				for i, action in enumerate(currentNode.state.allowedActions):	# insert new action edge pairs into currentNode.edges
 					if action in untried_actions and action not in existing_untried:	# dirty but works
-						new_edge = Edge(currentNode, probs[i], action)
+						new_edge = Edge(currentNode, None, action)
 						currentNode.edges.append((action, new_edge))
 
 						if action == simulationAction:
@@ -158,80 +136,43 @@ class MCTS():
 
 				# TODO: averaging prior probability with new probability
 
-				lg.logger_mcts.info('Untried action: %d', simulationAction)
+				#lg.logger_mcts.info('Untried action: %d', simulationAction)
 
 
 			
-			if simulationAction not in current_state.allowedActions:
-				print("untried: {0}, existing: {1}, legal: {2}".format(untried_actions, existing_untried, legal_actions))
-				print(simulationAction)
-				print(current_state.user_print())
-				#self.render()
-				print("action error")
-				exit(1)
 
-			current_turn = current_state.playerTurn
-
-			# keeps making actions until there is a decision to be made or it is a terminal state
-			# in order to generate the state for the next node
-			while 1:
-				#print("from ISMCTS")
-				start = timer()
-				newState, value_tuple, done = current_state.takeAction(simulationAction) #the value of the newState from the POV of the new playerTurn
-				end = timer()
-				tk.take_action_time += end - start
-
-				if done or len(newState.allowedActions) > 1:  # if the game is over or the current player has a choice break the loop
-					break
-				elif len(newState.allowedActions) == 1:   # else takeAction() with the one action available
-					simulationAction = newState.allowedActions[0]
-					current_state = newState
-				else:                                           # or if no actions are available pass turn by taking action -1
-					current_state = newState
-					simulationAction = -1
+			newState, value_tuple, done = currentNode.state.takeAction(simulationAction) #the value of the newState from the POV of the new playerTurn
 
 			# if a new action is being explored add the resulting node to the tree
 			# and store that node in the corresponding edge's outNode as well as the
 			# edge in the node's inEdge
 			if untried_actions != []:
-				if newState.playerTurn == self.root.playerTurn:
-					id = newState.id
-				else:
-					id = newState.public_id
+				id = newState.id
 				
 				if id not in self.tree:
 					node = Node(newState, id)
 					self.addNode(node)
-					lg.logger_mcts.info('added node...%s', node.id)
+					#lg.logger_mcts.info('added node...%s', node.id)
 				else:
 					node = self.tree[id]
-					lg.logger_mcts.info('existing node...%s',node.id)
+					#lg.logger_mcts.info('existing node...%s',node.id)
 					node.state = newState
 
 				chosen_edge.outNode = node
 				node.inEdges.append(chosen_edge)
 				simulationEdge = chosen_edge
-
 			if TEAM_SIZE > 1:
-				value = value_tuple[current_turn % TEAM_SIZE]
+				value = value_tuple[newState.playerTurn % TEAM_SIZE]
 			else:
-				value = value_tuple[current_turn]
+				value = value_tuple[newState.playerTurn]
 
 			currentNode = simulationEdge.outNode
 			currentNode.state = newState
-			current_state = newState
 			breadcrumbs.append(simulationEdge)
 
 		lg.logger_mcts.info('DONE...%d', done)
 
-		if currentNode == self.root and len(self.root.edges) > 0:
-			print("root seen as leaf in movetoleaf")
-			print("node count: {0}, depth during this sim: {1}".format(len(self.tree), depth))
-			current_state.user_print()
-			self.render()
-			exit(0)
-
-		return currentNode, value, done, breadcrumbs
+		return currentNode, done, breadcrumbs
 
 	def moveToLeaf_rollout(self, agent):
 		breadcrumbs = []
@@ -374,23 +315,26 @@ class MCTS():
 	def backFill_bandit(self, leaf, value, breadcrumbs):
 		lg.logger_mcts.info('------DOING BACKFILL------')
 
-		currentPlayer = leaf.state.playerTurn % 2
+		currentPlayer = leaf.state.playerTurn
+
+		if TEAM_SIZE > 1:
+			currentPlayer = currentPlayer % TEAM_SIZE
 
 		for edge in breadcrumbs:
 			playerTurn = edge.playerTurn
 			if TEAM_SIZE > 1:
-				if playerTurn % 2 == currentPlayer:	# added the or to set the values to positive for currentPlayer's partner
+				if playerTurn % TEAM_SIZE == currentPlayer:	# added the or to set the values to positive for currentPlayer's partner
 					direction = 1
 				else:
-					direction =-1
+					direction = -1
 			else:
-				if playerTurn % 2 == currentPlayer:	# added the or to set the values to positive for currentPlayer's partner
+				if playerTurn == currentPlayer:	# added the or to set the values to positive for currentPlayer's partner
 					direction = 1
 				else:
 					direction = -1
 
 			edge.bandit_stats['V'] += 1
-			edge.bandit_stats['R'] += direction
+			edge.bandit_stats['R'] += direction * value
 
 			edge.outNode.state.render(lg.logger_mcts)
 

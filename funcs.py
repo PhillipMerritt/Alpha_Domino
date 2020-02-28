@@ -16,6 +16,8 @@ from agent import Agent, User
 import config
 from config import PLAYER_COUNT, TEAM_SIZE
 
+from collections import defaultdict
+
 def playMatchesBetweenVersions(env, run_version_1,run_version_2, player1version, player2version, EPISODES, logger, turns_until_tau0, goes_first = 0):
     
     if player1version == -1:
@@ -101,10 +103,8 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
             d_t = state.decision_type
             turn = state.playerTurn
             #### Run the MCTS algo and return an action
-            if players[turn]["name"] == 'tester' or players[turn]["name"] == 'tester2':
-                action, _ = players[state.playerTurn]['agent'].act(state)
-            else:
-                action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, epsilon)
+            action, pi = players[state.playerTurn]['agent'].act(state, epsilon)
+            #action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, epsilon)
 
                 # store decision type from state
             if players[turn]["name"] != 'tester':
@@ -112,13 +112,13 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
                     ####Commit the move to memory
                     memory[d_t].commit_stmemory(env.identities, state, pi)
 
-                if agents[0].name != 'User1' and agents[0].name != 'tester':
+                """if agents[0].name != 'User1' and agents[0].name != 'tester':
                     logger.info('action: %d', action)
                     #for r in range(env.grid_shape[0]):
                         #   logger.info(['----' if x == 0 else '{0:.2f}'.format(np.round(x,2)) for x in pi[env.grid_shape[1]*r : (env.grid_shape[1]*r + env.grid_shape[1])]])
                     logger.info('MCTS perceived value for %s: %f', action ,np.round(MCTS_value,2))
                     logger.info('NN perceived value for %s: %f', action ,np.round(NN_value,2))
-                    logger.info('====================')
+                    logger.info('====================')"""
 
 
             if action not in state.allowedActions:
@@ -189,13 +189,7 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
         tk.total_game_time = end_game - start_game
         total_time_avg += tk.total_game_time
         #tk.print_ratios(tk.total_game_time, tk.move_to_leaf_time, tk.evaluate_leaf_time, tk.get_preds_time, tk.backfill_time, tk.take_action_time, tk.predict_time)
-        tk.total_game_time = 0 
-        tk.move_to_leaf_time = 0
-        tk.evaluate_leaf_time = 0 
-        tk.get_preds_time = 0 
-        tk.backfill_time = 0 
-        tk.take_action_time = 0 
-        tk.predict_time = 0
+        tk.total_game_time = 0
 
         # if it is a tournament and if either player has won enough games to win break the loop
         if players[1]['name'] == 'current_player' and (scores['best_player'] > games_to_block or scores['current_player'] > games_to_win):
@@ -316,8 +310,6 @@ def version_tournament(agents, EPISODES, logger):
 
     turns = 0
 
-    epsilon_step = 1/EPISODES
-
     games_to_win = (config.SCORING_THRESHOLD * EPISODES) / (1 + config.SCORING_THRESHOLD)
     games_to_block = EPISODES - games_to_win
 
@@ -334,6 +326,7 @@ def version_tournament(agents, EPISODES, logger):
 
         if len(state.allowedActions) == 1:  # if things like bidding at the beginning only give one action go ahead and  automate those w/ env.step
                 state, _, _, _ = env.step(state.allowedActions[0], logger)
+
         
         done = 0
         players = {}
@@ -360,10 +353,7 @@ def version_tournament(agents, EPISODES, logger):
             if players[turn]["name"] == 'low_agent':
                  action = random.choice(state.allowedActions)
             else:
-                if players[turn]["name"] == 'tester' or players[turn]["name"] == 'tester2':
-                    action, _ = players[state.playerTurn]['agent'].act(state)
-                else:
-                    action, pi, MCTS_value, NN_value = players[state.playerTurn]['agent'].act(state, 0)
+                action, _ = players[state.playerTurn]['agent'].act(state, 0)
 
 
             if action not in state.allowedActions:
@@ -378,30 +368,18 @@ def version_tournament(agents, EPISODES, logger):
             
             #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
 
-            if done == 1 and players[turn]["name"] != 'tester':
+            if done == 1:
                 winning_team = int(np.argmax(value))
                 if TEAM_SIZE > 1:
                     winning_team = winning_team % TEAM_SIZE
 
                 scores[players[winning_team]['name']] += 1
                 print(scores)
-
-        end_game = timer()
-        tk.total_game_time = end_game - start_game
-        total_time_avg += tk.total_game_time
-        #tk.print_ratios(tk.total_game_time, tk.move_to_leaf_time, tk.evaluate_leaf_time, tk.get_preds_time, tk.backfill_time, tk.take_action_time, tk.predict_time)
-        tk.total_game_time = 0 
-        tk.move_to_leaf_time = 0
-        tk.evaluate_leaf_time = 0 
-        tk.get_preds_time = 0 
-        tk.backfill_time = 0 
-        tk.take_action_time = 0 
-        tk.predict_time = 0
+        total_time_avg += (timer() - start_game)
 
         # if it is a tournament and if either player has won enough games to win break the loop
         if players[1]['name'] == 'current_player' and (scores['best_player'] > games_to_block or scores['current_player'] > games_to_win):
             break
     
-
     print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
-    return (scores, memory, points)
+    return (scores, points)
