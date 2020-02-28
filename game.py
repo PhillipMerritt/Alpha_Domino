@@ -58,7 +58,7 @@ class Game:
             hands = [[] for players in range(PLAYER_COUNT)]
             queue = globals.queue_reset()   # reset and shuffle the queue
 
-            for i in range(5):
+            for i in range(8):
                 for p in range(PLAYER_COUNT):
                     hands[p].append(queue.pop())  # pop 3 doms of the queue for each player's hand
             

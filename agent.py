@@ -11,7 +11,7 @@ from game import GameState
 from loss import softmax_cross_entropy_with_logits
 
 import config
-from config import DECISION_TYPES
+from config import DECISION_TYPES, TEAM_SIZE, PLAYER_COUNT
 import loggers as lg
 import time
 
@@ -74,73 +74,68 @@ class Agent():
         self.mcts.root.state.render(lg.logger_mcts)
         lg.logger_mcts.info('CURRENT PLAYER...%d', self.mcts.root.state.playerTurn)
 
-        ##### MOVE THE LEAF NODE
-
-        start = timer()
-        leaf, value, done, breadcrumbs = self.mcts.moveToLeaf(self)
-        end = timer()
-        tk.move_to_leaf_time += end - start
+        ##### MOVE THE LEAF NODE       
+        leaf, done, breadcrumbs = self.mcts.moveToLeaf(self)
 
         leaf.state.render(lg.logger_mcts)
 
         ##### EVALUATE THE LEAF NODE
-        start = timer()
-        value, breadcrumbs = self.evaluateLeaf(leaf, value, done, breadcrumbs)
-        end = timer()
-        tk.evaluate_leaf_time += end - start
+        value = self.get_value(leaf.state, done)
 
         ##### BACKFILL THE VALUE THROUGH THE TREE
-        start = timer()
-        self.mcts.backFill(leaf, value, breadcrumbs)
-        end = timer()
-        tk.backfill_time += end - start
+        self.mcts.backFill_bandit(leaf, value, breadcrumbs)
 
     def act(self, state, epsilon):
-        state = state.CloneAndRandomize()
-        d_t = state.decision_type   # store which decision type this will be
+        pi = np.zeros(self.action_size[0], dtype=np.integer)
 
-        """if self.mcts == None or state.id not in self.mcts.tree:
+        if np.random.random() > epsilon:    # choose best
+            state = state.CloneAndRandomize()
+            d_t = state.decision_type   # store which decision type this will be
+
+            """if self.mcts == None or state.id not in self.mcts.tree:
+                self.buildMCTS(state)
+            else:
+                self.changeRootMCTS(state)"""
+
             self.buildMCTS(state)
-        else:
-            self.changeRootMCTS(state)"""
 
-        self.buildMCTS(state)
+            #### run the simulation
+            for sim in range(self.MCTSsimulations):
+                if len(state.allowedActions) == 0:
+                    print("agent asked to choose from nothing after {0} simulations".format(sim))
+                    exit(1)
+                lg.logger_mcts.info('***************************')
+                lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
+                lg.logger_mcts.info('***************************')
+                self.simulate()
+                if sim < self.MCTSsimulations - 1:
+                    state = state.CloneAndRandomize() # determinize
+                    self.mcts.root.state = state
+                #self.mcts.render(sim)
 
-        #### run the simulation
-        for sim in range(self.MCTSsimulations):
-            if len(state.allowedActions) == 0:
-                print("agent asked to choose from nothing after {0} simulations".format(sim))
-                exit(1)
-            lg.logger_mcts.info('***************************')
-            lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
-            lg.logger_mcts.info('***************************')
-            self.simulate()
-            if sim < self.MCTSsimulations - 1:
-                state = state.CloneAndRandomize() # determinize
-                self.mcts.root.state = state
-            #self.mcts.render(sim)
+            ####pick the action
+            max_visits = 0
+            best_actions = []
+            for (action, edge) in self.mcts.root.edges:
+                pi[action] = edge.bandit_stats['V']
+                if edge.bandit_stats['V'] > max_visits:
+                    max_visits = edge.bandit_stats['V']
+                    best_actions = [action]
+                elif edge.bandit_stats['V'] == max_visits:
+                    best_actions.append(action)
 
-        """if state.decision_type == 0:
-            self.mcts.render()"""
-        
-        #### get action values
-        pi, values = self.getAV(1, d_t)
+            return (np.random.choice(best_actions), pi)
+        else:   # choose randomly
 
-        ####pick the action
-        action, value = self.chooseAction(pi, values, epsilon)
+            return (np.random.choice(state.allowedActions), pi)
 
-        start = timer()
-        nextState, _, _ = state.takeAction(action)
-        end = timer()
-        tk.take_action_time += end - start
-        NN_value = -self.get_preds(nextState,d_t)[0]
-
+        """
         lg.logger_mcts.info('ACTION VALUES...%s', pi)
         lg.logger_mcts.info('CHOSEN ACTION...%d', action)
         lg.logger_mcts.info('MCTS PERCEIVED VALUE...%f', value)
         lg.logger_mcts.info('NN PERCEIVED VALUE...%f', NN_value)
+        """
         
-        return (action, pi, value, NN_value)
 
     def get_preds(self, state, decision_type):
         decision_type = state.decision_type
@@ -169,6 +164,23 @@ class Agent():
         probs = odds / np.sum(odds)  ###put this just before the for?
 
         return ((value, probs, allowedActions))
+
+    def get_value(self, state, done):
+        if done:
+            if TEAM_SIZE > 1:
+                return state.value[state.playerTurn % TEAM_SIZE]
+            else:
+                return state.value[state.playerTurn]
+
+        decision_type = state.decision_type
+
+        # predict the leaf
+
+        inputToModel = np.array([self.model[decision_type].convertToModelInput(state)])
+
+        preds = self.model[decision_type].predict(inputToModel)
+
+        return preds[0][0]
 
     def evaluateLeaf(self, leaf, value, done, breadcrumbs):
 
@@ -219,7 +231,6 @@ class Agent():
             action = random.choice(actions)[0]
         else:
             action_idx = np.random.multinomial(1, pi)
-
             action = np.where(action_idx == 1)[0][0]
 
         value = values[action]
@@ -231,16 +242,6 @@ class Agent():
 
         for i in range(config.TRAINING_LOOPS):
             minibatch = random.sample(ltmemory, min(config.BATCH_SIZE, len(ltmemory)))
-
-            for mem in minibatch:
-                #print("value: {0}, action_value: {1}".format(mem['value'], mem['AV']))
-                actions_from_mem = np.nonzero(mem['AV'])[0]
-                for action in mem['state'].allowedActions:
-                    if action not in actions_from_mem:
-                        print("action from mem not in state")
-                        print(actions_from_mem)
-                        print(mem['state'].allowedActions)
-                        exit(1)
             
             training_states = np.array([self.model[d_t].convertToModelInput(row['state']) for row in minibatch])
             training_targets = {'value_head': np.array([row['value'] for row in minibatch])}
@@ -250,12 +251,12 @@ class Agent():
             lg.logger_mcts.info('D_T {0}: NEW LOSS {1}'.format(d_t, fit.history))
 
             self.train_overall_loss[d_t].append(round(fit.history['loss'][config.EPOCHS - 1], 4))
-            self.train_value_loss[d_t].append(round(fit.history['value_head_loss'][config.EPOCHS - 1], 4))
+            #self.train_value_loss[d_t].append(round(fit.history['value_head_loss'][config.EPOCHS - 1], 4))
 
-        plt.plot(self.train_overall_loss[d_t], 'k')
-        plt.plot(self.train_value_loss[d_t], 'k:')
+        #plt.plot(self.train_overall_loss[d_t], 'k')
+        #plt.plot(self.train_value_loss[d_t], 'k:')
 
-        plt.legend(['train_overall_loss', 'train_value_loss'], loc='lower left')
+        #plt.legend(['train_overall_loss', 'train_value_loss'], loc='lower left')
 
         display.clear_output(wait=True)
         display.display(pl.gcf())
