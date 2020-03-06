@@ -1,6 +1,6 @@
 from timeit import default_timer as timer#timer 
-import time_keeper as tk
-from time_keeper import *
+
+
 
 import numpy as np
 import random
@@ -186,10 +186,10 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
                     logger.info('DRAW...')
                     scores['drawn'] = scores['drawn'] + 1
         end_game = timer()
-        tk.total_game_time = end_game - start_game
-        total_time_avg += tk.total_game_time
-        #tk.print_ratios(tk.total_game_time, tk.move_to_leaf_time, tk.evaluate_leaf_time, tk.get_preds_time, tk.backfill_time, tk.take_action_time, tk.predict_time)
-        tk.total_game_time = 0
+
+
+
+
 
         # if it is a tournament and if either player has won enough games to win break the loop
         if players[1]['name'] == 'current_player' and (scores['best_player'] > games_to_block or scores['current_player'] > games_to_win):
@@ -285,16 +285,16 @@ def fillMem(agents, memory):
 
 
         end_game = timer()
-        tk.total_game_time = end_game - start_game
-        total_time_avg += tk.total_game_time
-        #tk.print_ratios(tk.total_game_time, tk.move_to_leaf_time, tk.evaluate_leaf_time, tk.get_preds_time, tk.backfill_time, tk.take_action_time, tk.predict_time)
-        tk.total_game_time = 0 
-        tk.move_to_leaf_time = 0
-        tk.evaluate_leaf_time = 0 
-        tk.get_preds_time = 0 
-        tk.backfill_time = 0 
-        tk.take_action_time = 0 
-        tk.predict_time = 0
+
+
+
+
+
+
+
+
+
+
 
 
     print("Avg game time: {0}".format(total_time_avg/games))
@@ -350,7 +350,7 @@ def version_tournament(agents, EPISODES, logger):
             d_t = state.decision_type
             turn = state.playerTurn
             #### Run the MCTS algo and return an action
-            if players[turn]["name"] == 'low_agent':
+            if players[turn]["name"] == 'random_agent':
                  action = random.choice(state.allowedActions)
             else:
                 action, _ = players[state.playerTurn]['agent'].act(state, 0)

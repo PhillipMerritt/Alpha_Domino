@@ -1,7 +1,7 @@
 # %matplotlib inline
 from timeit import default_timer as timer#timer 
-import time_keeper as tk
-from time_keeper import *
+
+
 
 import numpy as np
 import random
@@ -145,7 +145,7 @@ class Agent():
         start = timer()
         preds = self.model[decision_type].predict(inputToModel)
         end = timer()
-        tk.predict_time += end - start
+
 
         value_array = preds[0]
         logits_array = preds[1]
@@ -196,7 +196,7 @@ class Agent():
             start = timer()
             value, probs, allowedActions = self.get_preds(leaf.state, leaf.state.decision_type)
             end = timer()
-            tk.get_preds_time += end - start
+
             lg.logger_mcts.info('PREDICTED VALUE FOR %d: %f', leaf.state.playerTurn, value)
 
             probs = probs[allowedActions]
@@ -289,7 +289,7 @@ class testing_agent(Agent):
         self.mcts = None
         self.cpuct = 0
     
-    def act(self, state):
+    def act(self, state, epsilon):
         state = state.CloneAndRandomize()
         d_t = state.decision_type   # store which decision type this will be
 

@@ -7,8 +7,8 @@ from config import PLAYER_COUNT, TEAM_SIZE
 from utils import setup_logger
 import loggers as lg
 
-import time_keeper as tk
-from time_keeper import *
+
+
 
 import networkx as nx
 #from networkx.drawing.nx_agraph import graphviz_layout

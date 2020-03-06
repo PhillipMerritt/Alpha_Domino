@@ -3,6 +3,8 @@ import logging
 import globals
 from config import PLAYER_COUNT
 from copy import deepcopy
+from collections import defaultdict
+from random import randrange
 
 # MEXICAN TRAIN
 # Game generates GameStates and handles switching between player turns
@@ -20,7 +22,7 @@ class Game:
 
         hands, trains, queue = self._generate_board()  # generate a new board and choose the starting player based on who has the highest double
 
-        self.gameState = GameState(hands, trains, queue, self.currentPlayer)  # create a GameState
+        self.gameState = GameState(hands, trains, queue, self.currentPlayer, [[] for i in range(PLAYER_COUNT)], [defaultdict(bool) for i in range(PLAYER_COUNT)])  # create a GameState
         self.actionSpace = [np.zeros(  # action space is 28 * each train
             (28 * len(trains)), dtype=np.int)]
         #self.grid_shape = (4, 28)  # grid shape is 7x28
@@ -36,7 +38,7 @@ class Game:
         while 1:    # sometimes game just play out to completion without any choices being made so games are created until this doesn't happen
             hands, trains, queue = self._generate_board()
 
-            self.gameState = GameState(hands, trains, queue, self.currentPlayer)
+            self.gameState = GameState(hands, trains, queue, self.currentPlayer, [[] for i in range(PLAYER_COUNT)], [defaultdict(bool) for i in range(PLAYER_COUNT)])
 
             if len(self.gameState.allowedActions) == 0:
                 self.step(-1)
@@ -139,7 +141,7 @@ class Game:
 
 
 class GameState():
-    def __init__(self, hands, trains, queue, playerTurn, passed = [False for player in range(PLAYER_COUNT)]):
+    def __init__(self, hands, trains, queue, playerTurn, clues, clues_dict, passed = [False for player in range(PLAYER_COUNT)]):
         # all_domino is a list of tuples containing the pip value for each domino
         self.all_domino = [(0, 0), (0, 1), (1, 1), (0, 2), (1, 2), (2, 2), (0, 3), (1, 3), (2, 3), (3, 3), (0, 4),
                            (1, 4), (2, 4), (3, 4), (4, 4), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5), (5, 5), (0, 6),
@@ -155,6 +157,9 @@ class GameState():
         self.hands = hands
         self.trains = trains
         self.queue = queue
+        
+        self.clues = clues
+        self.clues_dict = clues_dict
 
         self.passed = passed
 
@@ -185,6 +190,26 @@ class GameState():
         self.decision_type = 0
 
     def _draw(self):  # draws a random domino then updates binary and id. If there are no more dominos to draw return false
+        missing_doms = []
+        for i in range(PLAYER_COUNT):  # create a list of the unique head values the player failed to play on
+                index = (self.playerTurn + i) % PLAYER_COUNT
+                if (i==0 or self.trains[index].marked) and self.trains[index].head not in missing_doms:
+                    missing_doms.append(self.trains[index].head)
+
+        for dom in missing_doms:
+            if self.clues_dict[self.playerTurn][dom]: # if this pip value is already in the clues just increment the total # possible
+                for i in range(len(self.clues[self.playerTurn])):
+                    if self.clues[self.playerTurn][i][0] == dom:
+                        self.clues[self.playerTurn][i][1] += 1
+                        break
+            else:   # this is a newly tracked pip value so insert it into the clues based on it's value
+                self.clues_dict[self.playerTurn][dom] = True
+                for i in range(len(self.clues[self.playerTurn])):
+                    if self.clues[self.playerTurn][i][0] > dom:
+                        self.clues[self.playerTurn] = self.clues[self.playerTurn][:i] + [[dom,0]] + self.clues[self.playerTurn][i:]
+                        break
+                    elif i == len(self.clues[self.playerTurn]) - 1:
+                        self.clues[self.playerTurn].append([dom, 0])
 
         if len(self.queue) > 0:  # if there are dominoes to draw
             self.drawCount += 1
@@ -275,28 +300,99 @@ class GameState():
     # then generate a cloned gameState with the opponents hand generated from the shuffled
     # unknown list
     def CloneAndRandomize(self):
-        unknown = deepcopy(self.queue)  # create a deep copy of the queue
+        if PLAYER_COUNT == 2 and not self.queue:
+            new_hands = list(self.hands)
+            temp = []
+        else:
+            unknown = deepcopy(self.queue)  # create a deep copy of the queue
+            hidden_players = []
+            master_rules = [defaultdict(int) for player in range(PLAYER_COUNT)]
 
-        for i in range(PLAYER_COUNT):
-            if i != self.playerTurn:
-                for dom in self.hands[i]: # put all of the opponent's dominoes in with the rest of the unknown dominoes
-                    unknown.append(dom)
 
-        new_hands = [[] for player in range(PLAYER_COUNT)]
+            for i in range(PLAYER_COUNT):
+                if i != self.playerTurn:
+                    hidden_players.append(i)
 
+
+                    for pip, max_count in self.clues[i]:
+                        master_rules[i][pip] = max_count
+
+                    for dom in self.hands[i]: # put all of the opponent's dominoes in with the rest of the unknown dominoes
+                        unknown.append(dom)
+
+            start_over = True
+            count = 0
+            while start_over:
+                count += 1
+                if count == 1000:
+                    print(self.playerTurn)
+                    print(self.hands)
+                    print(self.queue)
+                    print(master_rules)
+                    quit(0)
+                new_hands = [[] for player in range(PLAYER_COUNT)]
+                start_over = False
+                need_doms = list(hidden_players)
+                rules = deepcopy(master_rules)
+                temp = list(unknown)
+                rejects = []
+
+                while need_doms:
+
+                    for player in deepcopy(need_doms):
+                        no_draw = True
+
+                        while no_draw:
+                            if not len(temp):
+                                start_over = True
+                                break
+
+                            dom = temp.pop()
+                            low_pip, high_pip = self.all_domino[dom]
+
+                            if self.clues_dict[player][low_pip] and self.clues_dict[player][high_pip]: # if both pip values are being tracked   
+                                if rules[player][low_pip] and rules[player][high_pip]:
+                                    if low_pip != high_pip:
+                                        rules[player][low_pip] -= 1
+                                    rules[player][high_pip] -= 1
+                                    new_hands[player].append(dom)
+                                    no_draw = False
+                                else:
+                                    rejects.append(dom)
+                            elif self.clues_dict[player][low_pip]: # or just the low pip
+                                if rules[player][low_pip]:
+                                    rules[player][low_pip] -= 1
+                                    new_hands[player].append(dom)
+                                    no_draw = False
+                                else:
+                                    rejects.append(dom)
+                            elif self.clues_dict[player][high_pip]: # or just the high pip
+                                if rules[player][high_pip]:
+                                    rules[player][high_pip] -= 1
+                                    new_hands[player].append(dom)
+                                    no_draw = False
+                                else:
+                                    rejects.append(dom)
+                            else:
+                                new_hands[player].append(dom)
+                                no_draw = False
+
+                        if len(self.hands[player]) == len(new_hands[player]):
+                            need_doms.remove(player)
+                        
+                        if not start_over and rejects:
+                            temp.extend(rejects)
+                            np.random.shuffle(temp)
+                    if start_over:
+                        break
+        
         for dom in self.hands[self.playerTurn]:   # copy over the current players hand
             new_hands[self.playerTurn].append(dom)
 
-        np.random.shuffle(unknown)
+        return GameState(new_hands, deepcopy(self.trains), temp, self.playerTurn, list(self.clues), deepcopy(self.clues_dict), self.passed)
 
-        for i in range(PLAYER_COUNT):
-            if i != self.playerTurn:
-                for k in range(len(self.hands[i])):
-                    new_hands[i].append(unknown.pop())
-
-        return GameState(new_hands, deepcopy(self.trains), unknown, self.playerTurn, self.passed)
-
-
+    def random_insert(self, lst, item):
+        lst.insert(randrange(len(lst)+1), item)
 
     # converts the state to a (2 * player_count + 3)x28 binary representation 
     # (current_player's hand, size of each other player's hand, each player's train, mexican train, marked train indices, available heads to play on)
@@ -401,18 +497,35 @@ class GameState():
 
         new_trains = deepcopy(self.trains)
 
+        new_dict = deepcopy(self.clues_dict)
+        new_clues = list(self.clues)
+        
+
         next_player = (self.playerTurn + 1) % PLAYER_COUNT
 
         if action != -1:
             chosen_dom = action % 28
-            try:
+            new_hands[self.playerTurn].remove(chosen_dom)
+            """try:
                 new_hands[self.playerTurn].remove(chosen_dom) # remove played domino from current player's hand
             except:
                 print("illegal action given to game state")
                 print("chosen dom: {0}".format(chosen_dom))
                 print("active player's hand: {0}".format(new_hands[self.playerTurn]))
                 print("all hands: {0}".format(new_hands))
-                exit(0)
+                exit(0)"""
+
+            # if either pip values of the played domino are being tracked decrement the total # the player could have
+            low_pip, high_pip = self.all_domino[chosen_dom]
+            if new_dict[self.playerTurn][low_pip] or new_dict[self.playerTurn][high_pip]:
+                for i in range(len(new_clues[self.playerTurn])):
+                    if new_clues[self.playerTurn][i][0] == low_pip:
+                        new_clues[self.playerTurn][i][1] -= 1
+                        if not new_dict[self.playerTurn][high_pip]:
+                            break
+                    elif new_clues[self.playerTurn][i][0] == high_pip:
+                        new_clues[self.playerTurn][i][1] -= 1
+                        break
 
             chosen_train = int(action/28)
 
@@ -435,7 +548,7 @@ class GameState():
                 if train.unfinished and not (i == self.playerTurn and double_played and chosen_train == 0):
                     train.mark()
 
-        newState = GameState(new_hands, new_trains, deepcopy(self.queue), next_player, self.passed)  # create new state
+        newState = GameState(new_hands, new_trains, deepcopy(self.queue), next_player, new_clues, new_dict, self.passed)  # create new state
 
         return (newState, newState.value, newState.isEndGame)
 
