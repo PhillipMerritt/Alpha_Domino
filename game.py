@@ -23,7 +23,7 @@ class Game:
 
         hands, trains, queue = self._generate_board()  # generate a new board and choose the starting player based on who has the highest double
 
-        self.gameState = GameState(hands, trains, queue, self.currentPlayer, [[] for i in range(PLAYER_COUNT)], [defaultdict(bool) for i in range(PLAYER_COUNT)])  # create a GameState
+        self.gameState = GameState(hands, trains, queue, self.currentPlayer, [GameState.Clues() for i in range(PLAYER_COUNT)])  # create a GameState
         self.actionSpace = [np.zeros(  # action space is 28 * each train
             (28 * len(trains)), dtype=np.int)]
         #self.grid_shape = (4, 28)  # grid shape is 7x28
@@ -39,7 +39,7 @@ class Game:
         while 1:    # sometimes game just play out to completion without any choices being made so games are created until this doesn't happen
             hands, trains, queue = self._generate_board()
 
-            self.gameState = GameState(hands, trains, queue, self.currentPlayer, [[] for i in range(PLAYER_COUNT)], [defaultdict(bool) for i in range(PLAYER_COUNT)])
+            self.gameState = GameState(hands, trains, queue, self.currentPlayer, [GameState.Clues() for i in range(PLAYER_COUNT)])
 
             if len(self.gameState.allowedActions) == 0:
                 self.step(-1)
@@ -288,34 +288,54 @@ class GameState():
     # unknown list
     def CloneAndRandomize(self):
         if PLAYER_COUNT == 2 and not self.queue:
-            new_hands = list(self.hands)
-            temp = []
-        else:
-            unknown = deepcopy(self.queue)  # create a deep copy of the queue
-            hidden_players = []
-            
-            for i in range(PLAYER_COUNT):
-                if i != self.playerTurn:
-                    hidden_players.append(i)
-                    unknown.extend(self.hands[i])
-                    self.clues[i].reset()
-            
-            np.random.shuffle(unknown)
-
-            i = 0
-            while len(unknown) != len(self.queue):
-                player = hidden_players[i]
-
-
-                
-
-
-            
+            return GameState(list(self.hands), deepcopy(self.trains), [], self.playerTurn, deepcopy(self.clues), self.passed)
         
-        for dom in self.hands[self.playerTurn]:   # copy over the current players hand
-            new_hands[self.playerTurn].append(dom)
+        unknown = deepcopy(self.queue)  # create a deep copy of the queue
+        hidden_players = []
+        
+        for i in range(PLAYER_COUNT):
+            if i != self.playerTurn:
+                hidden_players.append(i)
+                unknown.extend(self.hands[i])
+                self.clues[i].reset()
+        
+        np.random.shuffle(unknown)
 
-        return GameState(new_hands, deepcopy(self.trains), temp, self.playerTurn, deepcopy(self.clues), self.passed)
+        while len(unknown) != len(self.queue):  #TODO: find where dominos are being added to hands but not taken out of unknown
+            #player = hidden_players[i]
+            for i, player in enumerate(hidden_players):
+                if len(self.clues[player].hand) == len(self.hands[player]):
+                    continue
+                
+                if not self.clues[player].random_draw(unknown):
+                    stolen = False
+
+                    if len(hidden_players) > 1:
+                        #index = i + random.randint(1,len(hidden_players) - 1)
+                        temp_players = list(hidden_players)
+                        np.random.shuffle(temp_players)
+                        for other_player in temp_players:
+                            if other_player == player:
+                                continue
+                            if self.clues[player].steal(self.clues[other_player]):
+                                stolen = True
+                                break
+
+                    # swap w/ boneyard
+                    if not stolen:
+                        if not self.clues[player].boneyard_swap(unknown):
+                            print("BONEYARD SWAP FAIL")
+                            unknown.extend(self.clues[player].hand)
+                            self.clues[player].reset()
+
+        new_hands = [[] for i in range(PLAYER_COUNT)]
+        for player in hidden_players:
+            new_hands[player] = list(self.clues[player].hand)
+
+        # copy over the current players hand
+        new_hands[self.playerTurn] = list(self.hands[self.playerTurn])
+
+        return GameState(new_hands, deepcopy(self.trains), unknown, self.playerTurn, deepcopy(self.clues), self.passed)
 
     def random_insert(self, lst, item):
         lst.insert(randrange(len(lst)+1), item)
@@ -556,7 +576,7 @@ class GameState():
                         self.allowed[i] = False
             
             if self.clue_dict[high_pip] and low_pip != high_pip:
-                self.clue_dict[high_pip] -= 1
+                self.clue_dict[high_pip][0] -= 1
                 if not self.clue_dict[high_pip][0]:
                     for i in TUP2INDICES[high_pip]:
                         self.allowed[i] = False
@@ -573,14 +593,14 @@ class GameState():
                 if self.approve(dom):
                     low_pip, high_pip = INDEX2TUP[dom]
 
-                    counts[low_pip] += 1
-                    if self.clues_dict[low_pip] and counts[low_pip] == self.clues_dict[low_pip][0]:
+                    self.counts[low_pip] += 1
+                    if self.clue_dict[low_pip] and self.counts[low_pip] == self.clue_dict[low_pip][0]:
                         for disallowed in TUP2INDICES[low_pip]:
                             self.allowed[disallowed] = False
                     
                     if low_pip != high_pip:
-                        counts[high_pip] += 1
-                        if self.clues_dict[high_pip] and counts[high_pip] == self.clues_dict[high_pip][0]:
+                        self.counts[high_pip] += 1
+                        if self.clue_dict[high_pip] and self.counts[high_pip] == self.clue_dict[high_pip][0]:
                             for disallowed in TUP2INDICES[high_pip]:
                                 self.allowed[disallowed] = False
                     
@@ -593,11 +613,45 @@ class GameState():
             unknown = rejects
             return None
         
-        def swap(self, other_player):
+        # swap dominos w/ the boneyard until an additional domino can be drawn
+        def boneyard_swap(self, boneyard):
+            attempted = set()
+            set_hand = frozenset(self.hand)
+
+            while 1:
+                temp_yard = list(boneyard)
+                
+
+                dif = set_hand - attempted
+
+                if not dif:
+                    return False
+
+                set_aside = np.random.choice(list(dif))
+
+                self.hand.remove(set_aside)
+                attempted.add(set_aside)
+
+                self.update_approval(set_aside)
+
+                if self.random_draw(temp_yard):
+                    if self.random_draw(temp_yard):
+                        temp_yard.append(set_aside)
+                        boneyard = temp_yard
+
+                        return True
+                
+                self.hand.append(set_aside)
+
+
+
+            
+        
+        def steal(self, other_player):
             """potential_offerings = [dom for dom in self.hand if other_player.approve(dom)]
             potential_recieving = []"""
-            temp_hand = list(self.hand)
-
+            #temp_hand = list(self.hand)
+            np.random.shuffle(other_player.hand)
             recieved = self.random_draw(other_player.hand)
 
             if not recieved:
@@ -605,7 +659,7 @@ class GameState():
             
             other_player.update_approval(recieved)
 
-            given = other_player.random_draw(temp)
+            """given = other_player.random_draw(temp_hand)
 
             if not given:
                 self.hand.remove(recieved)
@@ -613,7 +667,7 @@ class GameState():
                 return False
             
             self.hand.remove(given)
-            self.update_approval(given)
+            self.update_approval(given)"""
 
             return True
 
@@ -628,7 +682,7 @@ class GameState():
             if low_pip != high_pip:
                 self.counts[high_pip] -= 1
 
-            if self.counts[low_pip] == self.clue_dict[low_pip][0] - 1: # this pip was disallowed
+            if self.clue_dict[low_pip] and self.counts[low_pip] == self.clue_dict[low_pip][0] - 1: # this pip was disallowed
                 # check each domino with this pip value to see if it can be allowed again
                 for disallowed in TUP2INDICES[low_pip]:
                     if disallowed != dom:
@@ -637,17 +691,17 @@ class GameState():
 
                         if tup[0] == tup[1]:    # if the disallowed domino is the double of this pip value just allow it
                             self.allowed[disallowed] = True
-                            next
+                            continue
                         elif tup[0] != low_pip:
                             other_pip = tup[0]
                         else:
                             other_pip = tup[1]
                         
-                        if self.counts[other_pip] != self.clue_dict[other_pip][0]:
+                        if not self.clue_dict[other_pip] or self.counts[other_pip] != self.clue_dict[other_pip][0]:
                             self.allowed[disallowed] = True
 
             if low_pip != high_pip:
-                if self.counts[high_pip] == self.clue_dict[high_pip][0] - 1: # this pip was disallowed
+                if self.clue_dict[high_pip] and self.counts[high_pip] == self.clue_dict[high_pip][0] - 1: # this pip was disallowed
                     # check each domino with this pip value to see if it can be allowed again
                     for disallowed in TUP2INDICES[high_pip]:
                         if disallowed != dom:
@@ -656,13 +710,13 @@ class GameState():
 
                             if tup[0] == tup[1]:    # if the disallowed domino is the double of this pip value just allow it
                                 self.allowed[disallowed] = True
-                                next
+                                continue
                             elif tup[0] != high_pip:
                                 other_pip = tup[0]
                             else:
                                 other_pip = tup[1]
                             
-                            if self.counts[other_pip] != self.clue_dict[other_pip][0]:
+                            if not self.clue_dict[other_pip] or self.counts[other_pip] != self.clue_dict[other_pip][0]:
                                 self.allowed[disallowed] = True
             
         def reset(self):
