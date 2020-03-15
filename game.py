@@ -1,7 +1,7 @@
 import numpy as np
 import logging
 import globals
-from globals import INDEX2TUP, TUP2INDICES
+from globals import *
 from config import PLAYER_COUNT
 from copy import deepcopy
 from collections import defaultdict
@@ -12,23 +12,14 @@ from random import randrange
 class Game:
 
     def __init__(self):     #TODO: add a # of players parameter
-        # all_domino is a list of tuples containing the pip value for each domino
-        self.all_domino = [(0, 0), (0, 1), (1, 1), (0, 2), (1, 2), (2, 2), (0, 3), (1, 3), (2, 3), (3, 3), (0, 4),
-                           (1, 4), (2, 4), (3, 4), (4, 4), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5), (5, 5), (0, 6),
-                           (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6)]
-        self.head_values = {0: 0, 2: 1, 5: 2, 9: 3, 14: 4, 20: 5,
-                            27: 6}  # head_values is a dict with the head_indices (doubles) as keys and the corresponding head values as values
-        self.head_indices = {0: 0, 1: 2, 2: 5, 3: 9, 4: 14, 5: 20, 6: 27}  # head_indices is the opposite
-        # these 2 dicts and the list allow for quick conversions
-
         hands, trains, queue = self._generate_board()  # generate a new board and choose the starting player based on who has the highest double
 
         self.gameState = GameState(hands, trains, queue, self.currentPlayer, [GameState.Clues() for i in range(PLAYER_COUNT)])  # create a GameState
-        self.actionSpace = [np.zeros(  # action space is 28 * each train
-            (28 * len(trains)), dtype=np.int)]
-        #self.grid_shape = (4, 28)  # grid shape is 7x28
+        self.actionSpace = [np.zeros(  # action space is DOM_COUNT * each train
+            (DOM_COUNT * len(trains)), dtype=np.int)]
+        #self.grid_shape = (4, DOM_COUNT)  # grid shape is 7xDOM_COUNT
         #self.input_shape = self.grid_shape = self.gameState.binary.shape  # input shape for the neural network is the shape of the binary state representation
-        self.input_shape = self.grid_shape = (2 * PLAYER_COUNT + 3, 28)
+        self.input_shape = self.grid_shape = (2 * PLAYER_COUNT + 3, DOM_COUNT)
         self.name = 'mexican_train'
         self.state_size = len(self.gameState.binary)  # size of the entire game state # TODO: look into this to see if it could be effecting anything
 
@@ -86,11 +77,10 @@ class Game:
     # if no player has a double both hands are redrawn
     def highest_double(self, hands):
         highest_doubles = [-1 for hand in hands]
-        doubles = self.head_values.keys()
 
         for i, hand in enumerate(hands):
             for dom in hand:
-                if dom in doubles and dom > highest_doubles[i]:
+                if dom in DOUBLES and dom > highest_doubles[i]:
                     highest_doubles[i] = dom
 
         winning_double = max(highest_doubles)
@@ -143,15 +133,6 @@ class Game:
 
 class GameState():
     def __init__(self, hands, trains, queue, playerTurn, clues, passed = [False for player in range(PLAYER_COUNT)]):
-        # all_domino is a list of tuples containing the pip value for each domino
-        self.all_domino = [(0, 0), (0, 1), (1, 1), (0, 2), (1, 2), (2, 2), (0, 3), (1, 3), (2, 3), (3, 3), (0, 4),
-                           (1, 4), (2, 4), (3, 4), (4, 4), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5), (5, 5), (0, 6),
-                           (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6)]
-        self.head_values = {0: 0, 2: 1, 5: 2, 9: 3, 14: 4, 20: 5,
-                            27: 6}  # head_values is a dict with the head_indices (doubles) as keys and the corresponding head values as values
-        self.head_indices = {0: 0, 1: 2, 2: 5, 3: 9, 4: 14, 5: 20, 6: 27}  # head_indices is the opposite
-        # these 2 dicts and the list allow for quick conversions
-
         self.p1_val = 0  # scores from a block ending
         self.p2_val = 0
 
@@ -189,14 +170,9 @@ class GameState():
 
         self.decision_type = 0
 
-    def _draw(self):  # draws a random domino then updates binary and id. If there are no more dominos to draw return false
-        missing_doms = []
-        for i in range(PLAYER_COUNT):  # create a list of the unique head values the player failed to play on
-                index = (self.playerTurn + i) % PLAYER_COUNT
-                if (i==0 or self.trains[index].marked) and self.trains[index].head not in missing_doms:
-                    missing_doms.append(self.trains[index].head)
-
-        self.clues[self.playerTurn].draw(missing_doms)
+    def _draw(self, available_pips):  # draws a random domino then updates binary and id. If there are no more dominos to draw return false
+        #print("failed to play on: {0}\nUnfinished: {1}\nHand: {2}".format(sorted(missing_doms), [train.head for train in self.trains if train.unfinished],[INDEX2TUP[dom] for dom in sorted(self.hands[self.playerTurn])]))
+        self.clues[self.playerTurn].draw(available_pips)
 
         if len(self.queue) > 0:  # if there are dominoes to draw
             self.drawCount += 1
@@ -211,9 +187,10 @@ class GameState():
         return False
 
     # generates a list of all allowed actions. If there are no available actions dominoes are drawn if available
-    # until there are actions to be made. The actions are in the form of action = (train num * 28) + action (ex. domino 14 to train 3 would be (3*28)+14 = 98
-    def _allowedActions(self):  # TODO: every player has to finish a public double if they can or their train becomes public too
-        heads = []              # TODO: add wild blanks
+    # until there are actions to be made. The actions are in the form of action = (train num * DOM_COUNT) + action (ex. domino 14 to train 3 would be (3*DOM_COUNT)+14 = 98
+    def _allowedActions(self):
+        heads = []
+        available_pips = []
 
         # check to see if any trains have an unfinished double
         # players have to finish doubles if they can unless they
@@ -229,17 +206,31 @@ class GameState():
                 # then they played the double last turn and must finish it
                 if i == 0 and not self.trains[index].marked:
                     heads.append((0, self.trains[index].head))
+
+                    if self.trains[index].head not in available_pips:
+                        available_pips.append(self.trains[index].head)
+
                     break
                 else:
                     heads.append((i, self.trains[index].head))
+
+                    if self.trains[index].head not in available_pips:
+                        available_pips.append(self.trains[index].head)
         
+
         if heads == []: # if the player isn't forced to play on specific trains
             for i in range(PLAYER_COUNT):  # create a list of the available head values
                 index = (self.playerTurn + i) % PLAYER_COUNT
                 if i==0 or self.trains[index].marked:
                     heads.append((i, self.trains[index].head))
+
+                    if self.trains[index].head not in available_pips:
+                        available_pips.append(self.trains[index].head)
             
             heads.append((PLAYER_COUNT, self.trains[PLAYER_COUNT].head))    # mexican train
+
+            if self.trains[PLAYER_COUNT].head not in available_pips:
+                available_pips.append(self.trains[PLAYER_COUNT].head)
 
         # check for legal actions. If none found draw a domino and try again. If still none found pass turn and mark this train
         actions = []
@@ -247,20 +238,20 @@ class GameState():
         for dom_index in self.hands[self.playerTurn]: # for each domino in hand
             for (i, head) in heads:
                 if self.match_check(dom_index, head):
-                    actions.append(i * 28 + dom_index)
+                    actions.append(i * DOM_COUNT + dom_index)
 
             
 
         if len(actions) > 0:  # if there are any available actions return them
             return actions
-        elif not self._draw():  # if no actions found draw a domino
+        elif not self._draw(available_pips):  # if no actions found draw a domino
             self.passed[self.playerTurn] = True
             return []  # if drawing a domino fails return an empty list
 
         new_dom = self.hands[self.playerTurn][-1]   # get the drawn domino
         for (i, head) in enumerate(heads):
             if self.match_check(new_dom, head):
-                actions.append(i * 28 + new_dom)
+                actions.append(i * DOM_COUNT + new_dom)
         
         if len(actions) > 0:
             return actions
@@ -270,14 +261,11 @@ class GameState():
 
     # function to determine if a domino can be played on the given head value
     def match_check(self, dom, head):
-        if head in self.all_domino[dom]:
-            return True
-        
-        return False
+        return head in INDEX2TUP[dom]
     
     # function to check if a dom is a double
     def double_check(self, dom):
-        tuple = self.all_domino[dom]
+        tuple = INDEX2TUP[dom]
         if tuple[0] == tuple[1]:
             return True
         return False
@@ -303,11 +291,27 @@ class GameState():
 
         while len(unknown) != len(self.queue):  #TODO: find where dominos are being added to hands but not taken out of unknown
             #player = hidden_players[i]
+
+            test = True
+            for player in hidden_players:
+                if len(self.clues[player].hand) != len(self.hands[player]):
+                    test = False
+                    break
+            if test:
+                print("list error")
+                print(self.playerTurn)
+                print(self.hands)
+                print(sorted(self.queue))
+                print(sorted(self.clues[(self.playerTurn + 1) % 2].hand))
+                print(sorted(unknown))
+                exit(0)
+
             for i, player in enumerate(hidden_players):
                 if len(self.clues[player].hand) == len(self.hands[player]):
                     continue
-                
-                if not self.clues[player].random_draw(unknown):
+
+                drawn_dom = self.clues[player].random_draw(unknown)
+                if not drawn_dom:
                     stolen = False
 
                     if len(hidden_players) > 1:
@@ -324,9 +328,12 @@ class GameState():
                     # swap w/ boneyard
                     if not stolen:
                         if not self.clues[player].boneyard_swap(unknown):
-                            print("BONEYARD SWAP FAIL")
+                            #print("BONEYARD SWAP FAIL")
                             unknown.extend(self.clues[player].hand)
                             self.clues[player].reset()
+                elif drawn_dom and drawn_dom in unknown:
+                    print("error in random_draw function")
+                    quit(0)
 
         new_hands = [[] for i in range(PLAYER_COUNT)]
         for player in hidden_players:
@@ -340,11 +347,11 @@ class GameState():
     def random_insert(self, lst, item):
         lst.insert(randrange(len(lst)+1), item)
 
-    # converts the state to a (2 * player_count + 3)x28 binary representation 
+    # converts the state to a (2 * player_count + 3)xDOM_COUNT binary representation 
     # (current_player's hand, size of each other player's hand, each player's train, mexican train, marked train indices, available heads to play on)
     def _binary(self):  # TODO signify multiples of a single head value being available
 
-        state = np.zeros((2 * PLAYER_COUNT + 3, 28), dtype=np.int)
+        state = np.zeros((2 * PLAYER_COUNT + 3, DOM_COUNT), dtype=np.int)
         state[0][self.hands[self.playerTurn]] = 1   # current player's hand
         for i in range(1, PLAYER_COUNT):
             state[i][len(self.hands[(self.playerTurn + i) % PLAYER_COUNT])] = 1 # length of each other player's hand
@@ -380,7 +387,7 @@ class GameState():
         public_id = 'Turn: ' + str(self.playerTurn)
 
         if root:
-            public_id += '|' + str([self.all_domino[dom] for dom in self.hands[self.playerTurn]])
+            public_id += '|' + str([INDEX2TUP[dom] for dom in self.hands[self.playerTurn]])
             public_id += '\n'
 
         for i in range(PLAYER_COUNT):
@@ -413,7 +420,7 @@ class GameState():
             # each player has ran out of dominoes so their tiles are flipped and the pips are added up
             # the player with the lowest total wins
             if False not in self.passed:
-                totals = [sum([sum(self.all_domino[dom]) for dom in hand]) for hand in self.hands]
+                totals = [sum([sum(INDEX2TUP[dom]) for dom in hand]) for hand in self.hands]
                 winner = int(np.argmin(totals))
 
                 temp = []
@@ -449,7 +456,7 @@ class GameState():
         next_player = (self.playerTurn + 1) % PLAYER_COUNT
 
         if action != -1:
-            chosen_dom = action % 28
+            chosen_dom = action % DOM_COUNT
             new_hands[self.playerTurn].remove(chosen_dom)
             """try:
                 new_hands[self.playerTurn].remove(chosen_dom) # remove played domino from current player's hand
@@ -460,10 +467,18 @@ class GameState():
                 print("all hands: {0}".format(new_hands))
                 exit(0)"""
 
+            low_pip, high_pip = INDEX2TUP[chosen_dom]
+            clues = self.clues[self.playerTurn].clue_dict
+            if (clues[low_pip] and clues[low_pip][0] == 0) or (clues[high_pip] and clues[high_pip][0] == 0): 
+                self.user_print()
+                print(INDEX2TUP[chosen_dom])
+                print(str(self.clues[self.playerTurn]))
+                quit(0)
+
             # update any relevant clues
             new_clues[self.playerTurn].play(chosen_dom)
 
-            chosen_train = int(action/28)
+            chosen_train = int(action/DOM_COUNT)
 
             if chosen_train == PLAYER_COUNT:    # if chosen_train is equal to PLAYER_COUNT it is the mexican train
                 new_trains[PLAYER_COUNT].add(chosen_dom)
@@ -484,14 +499,14 @@ class GameState():
                 if train.unfinished and not (i == self.playerTurn and double_played and chosen_train == 0):
                     train.mark()
 
-        newState = GameState(new_hands, new_trains, deepcopy(self.queue), next_player, new_clues, self.passed)  # create new state
+        newState = GameState(new_hands, new_trains, deepcopy(self.queue), next_player, new_clues, list(self.passed))  # create new state
 
         return (newState, newState.value, newState.isEndGame)
 
     def render(self, logger):  # this logs each gamestate to a logfile in the run folder. The commented sections will print the game states to the terminal if you uncomment them
         logger.info("Current Turn: {0}".format(self.playerTurn))
 
-        logger.info("Hands:\n{0}".format([[self.all_domino[dom] for dom in hand] for hand in self.hands]))
+        logger.info("Hands:\n{0}".format([[INDEX2TUP[dom] for dom in hand] for hand in self.hands]))
 
 
         for i in range(PLAYER_COUNT):
@@ -500,14 +515,14 @@ class GameState():
         logger.info("Mexican Train: {0}".format(self.trains[PLAYER_COUNT].head))
 
 
-        logger.info("Available actions (action #, train #, domino): {0}".format([(action, int(action/28), self.all_domino[action % 28]) for action in self.allowedActions]))
+        logger.info("Available actions (action #, train #, domino): {0}".format([(action, int(action/DOM_COUNT), INDEX2TUP[action % DOM_COUNT]) for action in self.allowedActions]))
         # print("Dominoes left in boneyard: {0}".format(np.count_nonzero(self.board[3])))
 
         logger.info('--------------')
         # print('--------------')
     def user_print(self):
-        print("Hands:\n{0}".format([[self.all_domino[dom] for dom in hand] for hand in self.hands]))
-        print("Your hand: {0}".format([self.all_domino[dom] for dom in self.hands[self.playerTurn]]))
+        print("Hands:\n{0}".format([[INDEX2TUP[dom] for dom in hand] for hand in self.hands]))
+        print("Your hand: {0}".format([INDEX2TUP[dom] for dom in self.hands[self.playerTurn]]))
 
 
         for i in range(PLAYER_COUNT):
@@ -516,7 +531,7 @@ class GameState():
         print("Mexican Train: {0}".format(self.trains[PLAYER_COUNT].head))
 
 
-        print("Available actions (action #, train #, domino): {0}".format([(action, int(action/28), self.all_domino[action % 28]) for action in self.allowedActions]))
+        print("Available actions (action #, train #, domino): {0}".format([(action, int(action/DOM_COUNT), INDEX2TUP[action % DOM_COUNT]) for action in self.allowedActions]))
         # print("Dominoes left in boneyard: {0}".format(np.count_nonzero(self.board[3])))
 
         print('--------------')
@@ -545,10 +560,11 @@ class GameState():
                         elif i == len(self.clues[self.playerTurn]) - 1:
                             self.clues[self.playerTurn].append([dom, 0])"""
             for pip in missing_pips:
+                self.clue_dict[pip] = [1]
+
+            for pip in self.clue_dict.keys():
                 if self.clue_dict[pip]:
                     self.clue_dict[pip][0] += 1
-                else:
-                    self.clue_dict[pip] = [1]
 
         # if either pip values of the played domino are being tracked decrement the total # the player could have
         def play(self, dom):
@@ -570,78 +586,104 @@ class GameState():
                         break"""
             
             if self.clue_dict[low_pip]:
+                if self.clue_dict[low_pip][0] == 0:
+                    print(self.clue_dict)
+                    print(INDEX2TUP[dom])
+                    exit(0)
                 self.clue_dict[low_pip][0] -= 1
                 if not self.clue_dict[low_pip][0]:
-                    for i in TUP2INDICES[low_pip]:
+                    for i in PIP2INDICES[low_pip]:
                         self.allowed[i] = False
             
             if self.clue_dict[high_pip] and low_pip != high_pip:
+                if self.clue_dict[high_pip][0] == 0:
+                    print(self.clue_dict)
+                    print(INDEX2TUP[dom])
+                    exit(0)
                 self.clue_dict[high_pip][0] -= 1
                 if not self.clue_dict[high_pip][0]:
-                    for i in TUP2INDICES[high_pip]:
+                    for i in PIP2INDICES[high_pip]:
                         self.allowed[i] = False
         
         def approve(self, dom):
             return self.allowed[dom]
 
+        # attempts to draw an allowed domino from the passed unknown list
         def random_draw(self, unknown):
-            rejects = []
+            rejects = []    # rejected draws will be set aside to prevent them from being drawn again
 
-            while unknown:
+            while unknown:  # until all dominos in unknown have been rejected
                 dom = unknown.pop()
 
-                if self.approve(dom):
+                if self.approve(dom):   # successful draw
                     low_pip, high_pip = INDEX2TUP[dom]
 
-                    self.counts[low_pip] += 1
-                    if self.clue_dict[low_pip] and self.counts[low_pip] == self.clue_dict[low_pip][0]:
-                        for disallowed in TUP2INDICES[low_pip]:
+                    self.counts[low_pip] += 1   # increment the counter for that pip value
+                    if self.clue_dict[low_pip] and self.counts[low_pip] == self.clue_dict[low_pip][0]:  # if that pip value is being tracked and the max # has been reached
+                        for disallowed in PIP2INDICES[low_pip]: # disallow all dominos that contain that pip value
                             self.allowed[disallowed] = False
                     
-                    if low_pip != high_pip:
+                    if low_pip != high_pip: # only repeat this process for the higher pip value if this isn't a double
                         self.counts[high_pip] += 1
                         if self.clue_dict[high_pip] and self.counts[high_pip] == self.clue_dict[high_pip][0]:
-                            for disallowed in TUP2INDICES[high_pip]:
+                            for disallowed in PIP2INDICES[high_pip]:
                                 self.allowed[disallowed] = False
                     
-                    unknown.extend(rejects)
-                    self.hand.append(dom)
+                    unknown.extend(rejects) # put the rejects back into the unknown list
+                    self.hand.append(dom)   # add the approved dom to hand and return it
                     return dom
                 else:
                     rejects.append(dom)
             
-            unknown = rejects
+            # if no dominos were drawn then they were all rejected so put them back and return None
+            unknown.extend(rejects)
             return None
         
         # swap dominos w/ the boneyard until an additional domino can be drawn
         def boneyard_swap(self, boneyard):
-            attempted = set()
-            set_hand = frozenset(self.hand)
-
+            unattempted = list(self.hand)
+            og_hand = list(self.hand)
             while 1:
-                temp_yard = list(boneyard)
-                
-
-                dif = set_hand - attempted
-
-                if not dif:
+                if not unattempted: # if setting aside every domino from the hand didn't allow two draws return false
                     return False
 
-                set_aside = np.random.choice(list(dif))
+                # choose a random untried domino to set aside
+                set_aside = np.random.choice(unattempted)
 
+                # remove it from hand
                 self.hand.remove(set_aside)
-                attempted.add(set_aside)
+                unattempted.remove(set_aside)
 
+                # update the approval list after it is taken out
                 self.update_approval(set_aside)
-
-                if self.random_draw(temp_yard):
-                    if self.random_draw(temp_yard):
-                        temp_yard.append(set_aside)
-                        boneyard = temp_yard
-
-                        return True
                 
-                self.hand.append(set_aside)
+                # attempt the first draw
+                draw_a = self.random_draw(boneyard)
+                if draw_a:
+                    # if successful attempt the second
+                    draw_b = self.random_draw(boneyard)
+                    if draw_b:
+                        # if succesful put the domino that was set aside back into the boneyard, update boneyard, and return True
+                        #temp_yard.append(set_aside)
+                        
+                        """print("Boneyard swap")
+                        print(sorted(og_hand))
+                        print(sorted(self.hand))
+                        print(sorted(boneyard))
+                        print(sorted(temp_yard))"""
+                        #boneyard = deepcopy(temp_yard)
+                        boneyard.append(set_aside)
+                        return True
+                    else:
+                        # if the first draw was successful, but not the second
+                        # remove the first draw from hand and update approval 
+                        self.update_approval(draw_a)
+                        self.hand.remove(draw_a)
+                        boneyard.append(draw_a)
+
+                # setting aside this domino didn't work so put it back in hand
+                # random_draw is used for this so that the approvals are updated
+                self.random_draw([set_aside])
 
 
 
@@ -684,7 +726,7 @@ class GameState():
 
             if self.clue_dict[low_pip] and self.counts[low_pip] == self.clue_dict[low_pip][0] - 1: # this pip was disallowed
                 # check each domino with this pip value to see if it can be allowed again
-                for disallowed in TUP2INDICES[low_pip]:
+                for disallowed in PIP2INDICES[low_pip]:
                     if disallowed != dom:
                         # get the other pip value
                         tup = INDEX2TUP[disallowed]
@@ -703,7 +745,7 @@ class GameState():
             if low_pip != high_pip:
                 if self.clue_dict[high_pip] and self.counts[high_pip] == self.clue_dict[high_pip][0] - 1: # this pip was disallowed
                     # check each domino with this pip value to see if it can be allowed again
-                    for disallowed in TUP2INDICES[high_pip]:
+                    for disallowed in PIP2INDICES[high_pip]:
                         if disallowed != dom:
                             # get the other pip value
                             tup = INDEX2TUP[disallowed]
@@ -724,28 +766,25 @@ class GameState():
             self.counts = defaultdict(int)
             self.allowed = [True for i in range(len(INDEX2TUP))]
 
-            for i, doms in enumerate(TUP2INDICES):
+            for i, doms in enumerate(PIP2INDICES):
                 if self.clue_dict[i] and not self.clue_dict[i][0]:
                     for dom in doms:
                         self.allowed[dom] = False
+        
+        def __str__(self):
+            return str(self.clue_dict)
 
 
 class Train:
     def __init__(self, first_dom, marked=True):
-        self.all_domino = [(0, 0), (0, 1), (1, 1), (0, 2), (1, 2), (2, 2), (0, 3), (1, 3), (2, 3), (3, 3), (0, 4),
-                           (1, 4), (2, 4), (3, 4), (4, 4), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5), (5, 5), (0, 6),
-                           (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6)]
-        self.head_values = {0: 0, 2: 1, 5: 2, 9: 3, 14: 4, 20: 5,
-                            27: 6}
-        self.head_indices = {0: 0, 1: 2, 2: 5, 3: 9, 4: 14, 5: 20, 6: 27}
         self.doms = [first_dom]
-        self.head = self.head_values[first_dom]
+        self.head = HEAD_VALUES[first_dom]
         self.marked = marked
         self.unfinished = False
 
     def add(self, dom):
         self.doms.append(dom)
-        tup = self.all_domino[dom]
+        tup = INDEX2TUP[dom]
 
         if tup[0] == tup[1]:
             self.unfinish()
@@ -758,7 +797,7 @@ class Train:
             self.head = tup[0]
 
     def match(self, dom):
-        tup = self.all_domino[dom]
+        tup = INDEX2TUP[dom]
         if self.head in tup:
             return True
         return False
@@ -776,7 +815,7 @@ class Train:
         self.unfinished = True
     
     def get_binary(self):
-        b = np.zeros(28, dtype = np.int)
+        b = np.zeros(DOM_COUNT, dtype = np.int)
         b[self.doms] = 1
         return b
     
