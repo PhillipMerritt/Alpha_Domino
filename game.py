@@ -52,7 +52,7 @@ class Game:
             hands = [[] for players in range(PLAYER_COUNT)]
             queue = globals.queue_reset()   # reset and shuffle the queue
 
-            for i in range(8):
+            for i in range(HANDSIZE):
                 for p in range(PLAYER_COUNT):
                     hands[p].append(queue.pop())  # pop 3 doms of the queue for each player's hand
             
@@ -133,28 +133,16 @@ class Game:
 
 class GameState():
     def __init__(self, hands, trains, queue, playerTurn, clues, passed = [False for player in range(PLAYER_COUNT)]):
-        self.p1_val = 0  # scores from a block ending
-        self.p2_val = 0
-
         self.hands = hands
         self.trains = trains
         self.queue = queue
-        
         self.clues = clues
-
         self.passed = passed
 
         self.isEndGame = self._checkForEndGame()
         self.value = self._getValue()  # the value is from the POV of the current player. So either 0 for the game continuing or -1 if the last player made a winning move
 
-        empty_hand = False
-
-        for hand in hands:
-            if len(hand) == 0:
-                empty_hand = True
-
         self.playerTurn = playerTurn
-        self.drawCount = 0  # tracks the # of times this player has drawn this turn. only used for logging
         self.public_id = self.get_public_info()
         self.binary = self._binary()  # this is a binary representation of the board state which is basically just the board atm
         self.id = self._convertStateToId()  # the state ID is all 4 board lists appended one after the other.
@@ -164,10 +152,7 @@ class GameState():
 
         if len(self.allowedActions) != 0:
             self.passed[self.playerTurn] = False
-
-        if not self.isEndGame and empty_hand:
-            print("empty hand yet game not over")
-
+        
         self.decision_type = 0
 
     def _draw(self, available_pips):  # draws a random domino then updates binary and id. If there are no more dominos to draw return false
@@ -175,8 +160,6 @@ class GameState():
         self.clues[self.playerTurn].draw(available_pips)
 
         if len(self.queue) > 0:  # if there are dominoes to draw
-            self.drawCount += 1
-
             self.hands[self.playerTurn].append(self.queue.pop())  # randomly pop one from the boneyard and place it in the players hand
 
             self.binary = self._binary()
@@ -327,8 +310,12 @@ class GameState():
 
                     # swap w/ boneyard
                     if not stolen:
+                        pre = len(self.clues[player].hand)
                         if not self.clues[player].boneyard_swap(unknown):
                             #print("BONEYARD SWAP FAIL")
+                            if pre != len(self.clues[player].hand):
+                                print("lost one in boneyard swap")
+                                quit(0)
                             unknown.extend(self.clues[player].hand)
                             self.clues[player].reset()
                 elif drawn_dom and drawn_dom in unknown:

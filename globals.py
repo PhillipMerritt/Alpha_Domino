@@ -53,7 +53,6 @@ for i, dub in enumerate(dubs):
 
 global HEAD_VALUES
 HEAD_VALUES = tempa.copy()
-print(HEAD_VALUES)
 
 global HEAD_INDICES
 HEAD_INDICES = tempb.copy()
