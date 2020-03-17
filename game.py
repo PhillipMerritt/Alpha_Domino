@@ -297,93 +297,73 @@ class GameState():
     # creates a list of hidden information by adding the opponent's hand back into the queue
     # then generate a cloned gameState with the opponents hand generated from the shuffled
     # unknown list
-    def CloneAndRandomize(self):
+    def CloneAndRandomize(self, count):
         if PLAYER_COUNT == 2 and not self.queue:
             return GameState(list(self.hands), deepcopy(self.trains), [], self.playerTurn, deepcopy(self.clues), self.passed)
         
-        unknown = deepcopy(self.queue)  # create a deep copy of the queue
+        states = []
+        perm_unknown = deepcopy(self.queue)  # create a deep copy of the queue
         hidden_players = []
+
+        og_allowed = [[] for _ in range(PLAYER_COUNT)]
         
         for i in range(PLAYER_COUNT):
             if i != self.playerTurn:
                 hidden_players.append(i)
-                unknown.extend(self.hands[i])
+                perm_unknown.extend(self.hands[i])
                 self.clues[i].reset()
+                og_allowed[i] = deepcopy(self.clues[i].allowed)
         
-        np.random.shuffle(unknown)
+        for _ in range(count):
+            unknown = deepcopy(perm_unknown)
+            np.random.shuffle(unknown)
 
-        while len(unknown) != len(self.queue):  #TODO: find where dominos are being added to hands but not taken out of unknown
-            #player = hidden_players[i]
+            for i in range(PLAYER_COUNT):
+                if i != self.playerTurn:
+                    self.clues[i].reset(og_allowed[i])
 
-            test = True
-            for player in hidden_players:
-                if len(self.clues[player].hand) != len(self.hands[player]):
-                    test = False
-                    break
-            if test:
-                print("list error")
-                print(self.playerTurn)
-                print(self.hands)
-                print(sorted(self.queue))
-                print(sorted(self.clues[(self.playerTurn + 1) % 2].hand))
-                print(sorted(unknown))
-                exit(0)
+            while len(unknown) != len(self.queue):  #TODO: find where dominos are being added to hands but not taken out of unknown
+                for i, player in enumerate(hidden_players):
+                    if len(self.clues[player].hand) == len(self.hands[player]):
+                        continue
 
-            for i, player in enumerate(hidden_players):
-                if len(self.clues[player].hand) == len(self.hands[player]):
-                    continue
+                    drawn_dom = self.clues[player].random_draw(unknown)
+                    if drawn_dom == None:
+                        stolen = False
 
-                drawn_dom = self.clues[player].random_draw(unknown)
-                if drawn_dom == None:
-                    fail = True
-                    for key in self.clues[player].clue_dict.keys():
-                        if self.clues[player].clue_dict[key]:
-                            fail = False
-                            break
-                    if fail:
-                        print("no draw despite no rules")
-                        print(unknown)
-                        print(self.clues[player].allowed)
-                        print(self.clues[player].hand)
-                        print(len(self.hands[player]))
+                        if len(hidden_players) > 1:
+                            #index = i + random.randint(1,len(hidden_players) - 1)
+                            temp_players = list(hidden_players)
+                            np.random.shuffle(temp_players)
+                            for other_player in temp_players:
+                                if other_player == player:
+                                    continue
+                                if self.clues[player].steal(self.clues[other_player]):
+                                    stolen = True
+                                    break
+
+                        # swap w/ boneyard
+                        if not stolen:
+                            pre = len(self.clues[player].hand)
+                            if not self.clues[player].boneyard_swap(unknown):
+                                #print("BONEYARD SWAP FAIL")
+                                if pre != len(self.clues[player].hand):
+                                    print("lost one in boneyard swap")
+                                    quit(0)
+                                unknown.extend(self.clues[player].hand)
+                                self.clues[player].reset()
+                    elif drawn_dom != None and drawn_dom in unknown:
+                        print("error in random_draw function")
                         quit(0)
 
+            new_hands = [[] for i in range(PLAYER_COUNT)]
+            for player in hidden_players:
+                new_hands[player] = list(self.clues[player].hand)
 
-                    stolen = False
+            # copy over the current players hand
+            new_hands[self.playerTurn] = list(self.hands[self.playerTurn])
 
-                    if len(hidden_players) > 1:
-                        #index = i + random.randint(1,len(hidden_players) - 1)
-                        temp_players = list(hidden_players)
-                        np.random.shuffle(temp_players)
-                        for other_player in temp_players:
-                            if other_player == player:
-                                continue
-                            if self.clues[player].steal(self.clues[other_player]):
-                                stolen = True
-                                break
-
-                    # swap w/ boneyard
-                    if not stolen:
-                        pre = len(self.clues[player].hand)
-                        if not self.clues[player].boneyard_swap(unknown):
-                            #print("BONEYARD SWAP FAIL")
-                            if pre != len(self.clues[player].hand):
-                                print("lost one in boneyard swap")
-                                quit(0)
-                            unknown.extend(self.clues[player].hand)
-                            self.clues[player].reset()
-                elif drawn_dom != None and drawn_dom in unknown:
-                    print("error in random_draw function")
-                    quit(0)
-
-        new_hands = [[] for i in range(PLAYER_COUNT)]
-        for player in hidden_players:
-            new_hands[player] = list(self.clues[player].hand)
-
-        # copy over the current players hand
-        new_hands[self.playerTurn] = list(self.hands[self.playerTurn])
-
-        return GameState(new_hands, deepcopy(self.trains), unknown, self.playerTurn, deepcopy(self.clues), self.passed)
+            yield GameState(new_hands, deepcopy(self.trains), unknown, self.playerTurn, deepcopy(self.clues), self.passed)
 
     def random_insert(self, lst, item):
         lst.insert(randrange(len(lst)+1), item)
@@ -584,6 +564,7 @@ class GameState():
             self.hand = []
             self.counts = defaultdict(int)
             self.allowed = [True for i in range(len(INDEX2TUP))]
+            self.og_allowed = []
 
         # sets the maximum count for each pip value that the player
         # failed to play on. Then since the player just drew increment
@@ -800,15 +781,18 @@ class GameState():
                             if not self.clue_dict[other_pip] or self.counts[other_pip] != self.clue_dict[other_pip][0]:
                                 self.allowed[disallowed] = True
             
-        def reset(self):
+        def reset(self, og_allowed = None):
             self.hand = []
             self.counts = defaultdict(int)
-            self.allowed = [True for i in range(len(INDEX2TUP))]
+            if og_allowed:
+                self.allowed = deepcopy(og_allowed)
+            else:
+                self.allowed = [True for i in range(len(INDEX2TUP))]
 
-            for i, doms in enumerate(PIP2INDICES):
-                if self.clue_dict[i] and not self.clue_dict[i][0]:
-                    for dom in doms:
-                        self.allowed[dom] = False
+                for i, doms in enumerate(PIP2INDICES):
+                    if self.clue_dict[i] and not self.clue_dict[i][0]:
+                        for dom in doms:
+                            self.allowed[dom] = False
         
         def __str__(self):
             return str(self.clue_dict)

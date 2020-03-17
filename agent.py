@@ -89,7 +89,8 @@ class Agent():
         pi = np.zeros(self.action_size[0], dtype=np.integer)
 
         if np.random.random() > epsilon:    # choose best
-            state = state.CloneAndRandomize()
+            states = state.CloneAndRandomize(self.MCTSsimulations)
+            state = states.pop()
             d_t = state.decision_type   # store which decision type this will be
 
             """if self.mcts == None or state.id not in self.mcts.tree:
@@ -109,7 +110,7 @@ class Agent():
                 lg.logger_mcts.info('***************************')
                 self.simulate()
                 if sim < self.MCTSsimulations - 1:
-                    state = state.CloneAndRandomize() # determinize
+                    state = states.pop() # determinize
                     self.mcts.root.state = state
                 #self.mcts.render(sim)
 
@@ -290,7 +291,7 @@ class testing_agent(Agent):
         self.cpuct = 0
     
     def act(self, state, epsilon):
-        state = state.CloneAndRandomize()
+        state_generator = state.CloneAndRandomize(self.MCTSsimulations)
         d_t = state.decision_type   # store which decision type this will be
 
         self.buildMCTS(state)
@@ -299,14 +300,14 @@ class testing_agent(Agent):
             edge.bandit_stats['P'] += 1
 
         #### run the simulation
-        for sim in range(self.MCTSsimulations):
+        for sim, randomized_state in enumerate(state_generator):
+            self.mcts.root.state = randomized_state
+
             lg.logger_mcts.info('***************************')
             lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
             lg.logger_mcts.info('***************************')
+
             self.simulate()
-            if sim < self.MCTSsimulations - 1:
-                state = state.CloneAndRandomize() # determinize
-                self.mcts.root.state = state
 
         pi = np.zeros(self.action_size[0], dtype=np.integer)
 

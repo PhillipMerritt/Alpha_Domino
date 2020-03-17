@@ -375,7 +375,12 @@ def version_tournament(agents, EPISODES, logger):
 
                 scores[players[winning_team]['name']] += 1
                 print(scores)
-        total_time_avg += (timer() - start_game)
+                print('{0}%'.format(scores['rollout_agent'] / (e + 1)))
+                
+        game_time = timer() - start_game
+        total_time_avg += game_time
+        print(game_time)
+
 
         # if it is a tournament and if either player has won enough games to win break the loop
         if players[1]['name'] == 'current_player' and (scores['best_player'] > games_to_block or scores['current_player'] > games_to_win):

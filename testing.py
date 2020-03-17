@@ -37,7 +37,7 @@ if rollout_test:
     if PLAYER_COUNT == 2:
         version_tournament([rollout_agent, random_agent], 1000, lg.logger_tourney)
     else:
-        version_tournament([rollout_agent, random_agent, random_agent], 1000, lg.logger_tourney)
+        version_tournament([rollout_agent, random_agent, random_agent, random_agent], 1000, lg.logger_tourney)
 
 randomization_test = False
 
