@@ -42,6 +42,11 @@ for i, (low, high) in enumerate(INDEX2TUP):
         dubs.append(i)
         values.append(low)
 
+"""for i, a in enumerate(indices):
+    print('{0}: {1}'.format(i, a))
+
+quit(0)"""
+
 global DOUBLES
 DOUBLES = dubs
 
