@@ -26,6 +26,7 @@ class Game:
         self.action_size = [len(self.actionSpace[0])]  # size of the actionSpace
 
     def reset(self):  # creates new game
+        #print("NEW GAME\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         count = 1
         while 1:    # sometimes game just play out to completion without any choices being made so games are created until this doesn't happen
             hands, trains, queue = self._generate_board()
@@ -155,11 +156,10 @@ class GameState():
         
         self.decision_type = 0
 
-    def _draw(self, available_pips):  # draws a random domino then updates binary and id. If there are no more dominos to draw return false
+    def _draw(self):  # draws a random domino then updates binary and id. If there are no more dominos to draw return false
         #print("failed to play on: {0}\nUnfinished: {1}\nHand: {2}".format(sorted(missing_doms), [train.head for train in self.trains if train.unfinished],[INDEX2TUP[dom] for dom in sorted(self.hands[self.playerTurn])]))
-        self.clues[self.playerTurn].draw(available_pips)
 
-        if len(self.queue) > 0:  # if there are dominoes to draw
+        if self.queue:  # if there are dominoes to draw
             self.hands[self.playerTurn].append(self.queue.pop())  # randomly pop one from the boneyard and place it in the players hand
 
             self.binary = self._binary()
@@ -172,79 +172,119 @@ class GameState():
     # generates a list of all allowed actions. If there are no available actions dominoes are drawn if available
     # until there are actions to be made. The actions are in the form of action = (train num * DOM_COUNT) + action (ex. domino 14 to train 3 would be (3*DOM_COUNT)+14 = 98
     def _allowedActions(self):
-        heads = []
+        heads = defaultdict(list)
         available_pips = []
+        unfinished = False
 
         # check to see if any trains have an unfinished double
         # players have to finish doubles if they can unless they
         # played the double the previous turn on a train that isn't theirs
-        for i in range(PLAYER_COUNT + 1):
-            if i < PLAYER_COUNT:
+        for i in range(PLAYER_COUNT):
+            """if i < PLAYER_COUNT:
                 index = (self.playerTurn + i) % PLAYER_COUNT
             else:
-                index = i
+                index = i"""
 
-            if self.trains[index].unfinished:
+            if self.trains[i].unfinished:
+                unfinished = True
                 # if the unfinished train belongs to this player and it isn't marked 
                 # then they played the double last turn and must finish it
-                if i == 0 and not self.trains[index].marked:
-                    heads.append((0, self.trains[index].head))
+                if i == self.playerTurn and not self.trains[i].marked:
+                    heads[self.trains[i].head].append(0)
 
-                    if self.trains[index].head not in available_pips:
-                        available_pips.append(self.trains[index].head)
+                    if self.trains[i].head not in available_pips:
+                        available_pips.append(self.trains[i].head)
 
                     break
                 else:
-                    heads.append((i, self.trains[index].head))
+                    if i > self.playerTurn:
+                        offset = i - self.playerTurn
+                    else:
+                        offset = i + PLAYER_COUNT - self.playerTurn
 
-                    if self.trains[index].head not in available_pips:
-                        available_pips.append(self.trains[index].head)
+                    heads[self.trains[i].head].append(offset)
+
+                    if self.trains[i].head not in available_pips:
+                        available_pips.append(self.trains[i].head)
         
 
-        if heads == []: # if the player isn't forced to play on specific trains
+        if not unfinished: # if the player isn't forced to play on specific trains due to doubles
             for i in range(PLAYER_COUNT):  # create a list of the available head values
-                index = (self.playerTurn + i) % PLAYER_COUNT
-                if i==0 or self.trains[index].marked:
-                    heads.append((i, self.trains[index].head))
+                if i == self.playerTurn or self.trains[i].marked:
+                    offset = 0
+                    if i > self.playerTurn:
+                        offset = i - self.playerTurn
+                    elif i < self.playerTurn:
+                        offset = i + PLAYER_COUNT - self.playerTurn
 
-                    if self.trains[index].head not in available_pips:
-                        available_pips.append(self.trains[index].head)
+                    heads[self.trains[i].head].append(offset)
+
+                    if self.trains[i].head not in available_pips:
+                        available_pips.append(self.trains[i].head)
             
-            heads.append((PLAYER_COUNT, self.trains[PLAYER_COUNT].head))    # mexican train
+            heads[self.trains[PLAYER_COUNT].head].append(PLAYER_COUNT)    # mexican train
 
             if self.trains[PLAYER_COUNT].head not in available_pips:
                 available_pips.append(self.trains[PLAYER_COUNT].head)
+        
+        
 
         # check for legal actions. If none found draw a domino and try again. If still none found pass turn and mark this train
         actions = []
-
+        
+        
         for dom_index in self.hands[self.playerTurn]: # for each domino in hand
-            for (i, head) in heads:
-                if self.match_check(dom_index, head):
-                    actions.append(i * DOM_COUNT + dom_index)
+            low_pip, high_pip = INDEX2TUP[dom_index]
+            
+            if heads[low_pip]:
+                for offset in heads[low_pip]:
+                    actions.append(offset * DOM_COUNT + dom_index)
+                
+            
+            if low_pip != high_pip and heads[high_pip]:
+                for offset in heads[high_pip]:
+                    actions.append(offset * DOM_COUNT + dom_index)
+                
 
             
 
-        if len(actions) > 0:  # if there are any available actions return them
+        if actions:  # if there are any available actions return them
             return actions
-        elif not self._draw(available_pips):  # if no actions found draw a domino
+        elif not self._draw():  # if no actions found draw a domino
+            self.clues[self.playerTurn].draw(available_pips, True)
             self.passed[self.playerTurn] = True
             return []  # if drawing a domino fails return an empty list
 
+        
+        
+
+        self.clues[self.playerTurn].draw(available_pips)
+        
+
         new_dom = self.hands[self.playerTurn][-1]   # get the drawn domino
-        for (i, head) in enumerate(heads):
-            if self.match_check(new_dom, head):
-                actions.append(i * DOM_COUNT + new_dom)
+        low_pip, high_pip = INDEX2TUP[new_dom]
+        if heads[low_pip]:
+                for offset in heads[low_pip]:
+                    actions.append(offset * DOM_COUNT + new_dom)
+                
+            
+        if low_pip != high_pip and heads[high_pip]:
+            for offset in heads[high_pip]:
+                actions.append(offset * DOM_COUNT + new_dom)
         
         if len(actions) > 0:
             return actions
         
+        
+        
         self.trains[self.playerTurn].mark()
+        self.clues[self.playerTurn].draw(available_pips, True)
+        
         return []
 
     # function to determine if a domino can be played on the given head value
     def match_check(self, dom, head):
-        return head in INDEX2TUP[dom]
+        return head == INDEX2TUP[dom][0] or head == INDEX2TUP[dom][1]
     
     # function to check if a dom is a double
     def double_check(self, dom):
@@ -294,7 +334,21 @@ class GameState():
                     continue
 
                 drawn_dom = self.clues[player].random_draw(unknown)
-                if not drawn_dom:
+                if drawn_dom == None:
+                    fail = True
+                    for key in self.clues[player].clue_dict.keys():
+                        if self.clues[player].clue_dict[key]:
+                            fail = False
+                            break
+                    if fail:
+                        print("no draw despite no rules")
+                        print(unknown)
+                        print(self.clues[player].allowed)
+                        print(self.clues[player].hand)
+                        print(len(self.hands[player]))
+                        quit(0)
+
+
                     stolen = False
 
                     if len(hidden_players) > 1:
@@ -318,7 +372,7 @@ class GameState():
                                 quit(0)
                             unknown.extend(self.clues[player].hand)
                             self.clues[player].reset()
-                elif drawn_dom and drawn_dom in unknown:
+                elif drawn_dom != None and drawn_dom in unknown:
                     print("error in random_draw function")
                     quit(0)
 
@@ -432,7 +486,7 @@ class GameState():
 
     # creates a copy of the current board with the players hands swapped, makes the chosen action, creates a new gameState
     # then returns the new gameState as well as it's value and an indication of the game being over or not
-    def takeAction(self, action):   # TODO: add second turn after playing double
+    def takeAction(self, action):
         new_hands = deepcopy(self.hands)
 
         new_trains = deepcopy(self.trains)
@@ -531,27 +585,20 @@ class GameState():
             self.counts = defaultdict(int)
             self.allowed = [True for i in range(len(INDEX2TUP))]
 
-        def draw(self, missing_pips):
-            """for pip in missing_pips:
-                if self.clue_dict[pip]: # if this pip value is already in the clues just increment the total # possible
-                    for i in range(len(self.clues[self.playerTurn])):
-                        if self.clues[self.playerTurn][i][0] == dom:
-                            self.clues[self.playerTurn][i][1] += 1
-                            break
-                else:   # this is a newly tracked pip value so insert it into the clues based on it's value
-                    self.clues_dict[self.playerTurn][dom] = True
-                    for i in range(len(self.clues[self.playerTurn])):
-                        if self.clues[self.playerTurn][i][0] > dom:
-                            self.clues[self.playerTurn] = self.clues[self.playerTurn][:i] + [[dom,0]] + self.clues[self.playerTurn][i:]
-                            break
-                        elif i == len(self.clues[self.playerTurn]) - 1:
-                            self.clues[self.playerTurn].append([dom, 0])"""
-            for pip in missing_pips:
-                self.clue_dict[pip] = [1]
+        # sets the maximum count for each pip value that the player
+        # failed to play on. Then since the player just drew increment
+        # the maximum count for each tracked pip value by 1.
+        # If second_attempt is true then they still couldn't play a 
+        # domino after drawing so all maximum values for the missing_pips
+        # stay zero instead.
+        def draw(self, missing_pips, second_attempt = False):
+            for pip in missing_pips:    # mark maximum count for each pip value that the player failed to play on as zero
+                self.clue_dict[pip] = [0]
 
-            for pip in self.clue_dict.keys():
-                if self.clue_dict[pip]:
-                    self.clue_dict[pip][0] += 1
+            if not second_attempt:  # if they just drew a domino then they can have one more of each tracked pip value
+                for pip in self.clue_dict.keys():
+                    if self.clue_dict[pip]:
+                        self.clue_dict[pip][0] += 1
 
         # if either pip values of the played domino are being tracked decrement the total # the player could have
         def play(self, dom):
@@ -628,8 +675,13 @@ class GameState():
         
         # swap dominos w/ the boneyard until an additional domino can be drawn
         def boneyard_swap(self, boneyard):
-            unattempted = list(self.hand)
-            og_hand = list(self.hand)
+            unattempted = []   #TODO: only need to set aside dominos with tracked values
+            for dom in self.hand:
+                low_pip, high_pip = INDEX2TUP[dom]
+                if self.clue_dict[low_pip] or self.clue_dict[high_pip]:
+                    unattempted.append(dom)
+
+            og_len = len(boneyard)
             while 1:
                 if not unattempted: # if setting aside every domino from the hand didn't allow two draws return false
                     return False
@@ -646,10 +698,10 @@ class GameState():
                 
                 # attempt the first draw
                 draw_a = self.random_draw(boneyard)
-                if draw_a:
+                if draw_a != None:
                     # if successful attempt the second
                     draw_b = self.random_draw(boneyard)
-                    if draw_b:
+                    if draw_b != None:
                         # if succesful put the domino that was set aside back into the boneyard, update boneyard, and return True
                         #temp_yard.append(set_aside)
                         
@@ -677,7 +729,7 @@ class GameState():
             
         
         def steal(self, other_player):
-            """potential_offerings = [dom for dom in self.hand if other_player.approve(dom)]
+            """potential_offerings = [dom for dom in self.hand f other_player.approve(dom)]
             potential_recieving = []"""
             #temp_hand = list(self.hand)
             np.random.shuffle(other_player.hand)
