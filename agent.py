@@ -21,7 +21,6 @@ import pylab as pl
 
 import time
 
-from ISMCTS_test import ISMCTS as test_mc
 
 
 class User():
@@ -297,7 +296,7 @@ class testing_agent(Agent):
         self.cpuct = 0
     
     def act(self, state, epsilon):
-        action = test_mc(state, self.MCTSsimulations)
+        action = mc(state, self.MCTSsimulations)
         """state_generator = state.CloneAndRandomize(self.MCTSsimulations)
         d_t = state.decision_type   # store which decision type this will be
 
