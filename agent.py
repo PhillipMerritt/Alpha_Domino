@@ -1,6 +1,6 @@
 # %matplotlib inline
 from timeit import default_timer as timer#timer 
-
+from collections import defaultdict
 
 
 import numpy as np
@@ -20,6 +20,8 @@ from IPython import display
 import pylab as pl
 
 import time
+
+from ISMCTS_test import ISMCTS as test_mc
 
 
 class User():
@@ -276,6 +278,10 @@ class Agent():
     def buildMCTS(self, state):
         lg.logger_mcts.info('****** BUILDING NEW MCTS TREE FOR AGENT %s ******', self.name)
         self.root = mc.Node(state, state.id)
+
+        for action in state.allowedActions:
+            self.root.edges.append((action, mc.Edge(self.root, 0, action)))
+
         self.mcts = mc.MCTS(self.root, self.cpuct)
 
     def changeRootMCTS(self, state):
@@ -291,7 +297,8 @@ class testing_agent(Agent):
         self.cpuct = 0
     
     def act(self, state, epsilon):
-        state_generator = state.CloneAndRandomize(self.MCTSsimulations)
+        action = test_mc(state, self.MCTSsimulations)
+        """state_generator = state.CloneAndRandomize(self.MCTSsimulations)
         d_t = state.decision_type   # store which decision type this will be
 
         self.buildMCTS(state)
@@ -299,30 +306,45 @@ class testing_agent(Agent):
         for (action, edge) in self.mcts.root.edges:
             edge.bandit_stats['P'] += 1
 
+        #unique_hands = defaultdict(bool)
+
         #### run the simulation
         for sim, randomized_state in enumerate(state_generator):
             self.mcts.root.state = randomized_state
+    
+
+
+            
 
             lg.logger_mcts.info('***************************')
             lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
             lg.logger_mcts.info('***************************')
 
             self.simulate()
+        
+        #print('{0} unique out of {1}'.format(len(unique_hands.keys()), self.MCTSsimulations))
 
+        print(self.mcts.converge_count)
         pi = np.zeros(self.action_size[0], dtype=np.integer)
+
 
         ####pick the action
         max_visits = 0
         best_actions = []
         for (action, edge) in self.mcts.root.edges:
             pi[action] = edge.bandit_stats['V']
+
             if edge.bandit_stats['V'] > max_visits:
                  max_visits = edge.bandit_stats['V']
                  best_actions = [action]
             elif edge.bandit_stats['V'] == max_visits:
                 best_actions.append(action)
+                
         
-        return (np.random.choice(best_actions), pi)
+        
+        return (np.random.choice(best_actions), pi)"""
+
+        return action, None
 
     # Move to leaf, rollout, backfill
     def simulate(self):

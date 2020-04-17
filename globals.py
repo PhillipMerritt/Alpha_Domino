@@ -1,5 +1,4 @@
 import numpy as np
-from copy import deepcopy
 from collections import defaultdict
 from config import PLAYER_COUNT
 
@@ -63,10 +62,10 @@ global HEAD_INDICES
 HEAD_INDICES = tempb.copy()
 
 global PIP2INDICES
-PIP2INDICES = indices
+PIP2INDICES = [set(i) for i in indices]
 
 def queue_reset():
-    shuffled_queue = deepcopy(unshuffled_queue)
+    shuffled_queue = list(unshuffled_queue)
 
     #np.random.seed()
 

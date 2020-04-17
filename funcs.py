@@ -330,12 +330,10 @@ def version_tournament(agents, EPISODES, logger):
         
         done = 0
         players = {}
-        points = {}
 
         for i,player in enumerate(agents):
             player.mcts = None
             players[i] = {"agent": player, "name": player.name}
-            points[i] = []
 
         env.gameState.render(logger)
         start_game = timer()
@@ -375,7 +373,7 @@ def version_tournament(agents, EPISODES, logger):
 
                 scores[players[winning_team]['name']] += 1
                 print(scores)
-                print('{0}%'.format(scores['rollout_agent'] / (e + 1)))
+                print('{0}%'.format(100 * scores['rollout_agent'] / (e + 1)))
                 
         game_time = timer() - start_game
         total_time_avg += game_time

@@ -6,6 +6,8 @@ from config import PLAYER_COUNT
 from copy import deepcopy
 from collections import defaultdict
 from random import randrange
+from timeit import default_timer as timer
+from itertools import islice
 
 # MEXICAN TRAIN
 # Game generates GameStates and handles switching between player turns
@@ -144,7 +146,6 @@ class GameState():
         self.value = self._getValue()  # the value is from the POV of the current player. So either 0 for the game continuing or -1 if the last player made a winning move
 
         self.playerTurn = playerTurn
-        self.public_id = self.get_public_info()
         self.binary = self._binary()  # this is a binary representation of the board state which is basically just the board atm
         self.id = self._convertStateToId()  # the state ID is all 4 board lists appended one after the other.
         # these previous two may have been converted poorly from connect4 and are causing issues now
@@ -231,6 +232,8 @@ class GameState():
 
         # check for legal actions. If none found draw a domino and try again. If still none found pass turn and mark this train
         actions = []
+
+        
         
         
         for dom_index in self.hands[self.playerTurn]: # for each domino in hand
@@ -245,9 +248,8 @@ class GameState():
                 for offset in heads[high_pip]:
                     actions.append(offset * DOM_COUNT + dom_index)
                 
-
-            
-
+        
+       
         if actions:  # if there are any available actions return them
             return actions
         elif not self._draw():  # if no actions found draw a domino
@@ -257,8 +259,10 @@ class GameState():
 
         
         
+        
 
         self.clues[self.playerTurn].draw(available_pips)
+
         
 
         new_dom = self.hands[self.playerTurn][-1]   # get the drawn domino
@@ -294,15 +298,166 @@ class GameState():
         return False
 
 
+
+    def CloneAndRandomize(self, count):
+        if PLAYER_COUNT == 2 and not self.queue:
+            yield (GameState(list(self.hands), deepcopy(self.trains), [], self.playerTurn, deepcopy(self.clues), list(self.passed)) for _ in range(count))
+            
+        def assignADomino(unassignedDominoes, players, clues):
+            if not players:
+                return clues, unassignedDominoes # return solution
+            
+            p_i = players.pop()
+            players.append(p_i)
+            p = clues[p_i]
+            if not p.valid_doms:
+                return None, None #backtrack
+            
+            for d in unassignedDominoes:
+                if d not in p.valid_doms:
+                    continue
+                
+                valid_players, valid_unassigned = makeAssignment(d, p_i, list(unassignedDominoes), list(players), deepcopy(clues))
+                if valid_players:
+                    return valid_players, valid_unassigned
+
+            return None, None # backtrack
+
+        def makeAssignment(d, p_i, unassignedDominoes, players, clues):
+            baseMakeAssignment(d, p_i, unassignedDominoes, players, clues) # pass by reference
+            if not makeMandatoryAssignments(unassignedDominoes, players, clues):
+                return None, None
+            return assignADomino(unassignedDominoes, players, clues)
+            
+        def baseMakeAssignment(d, p_i, unassignedDominoes, players, clues):
+            clues[p_i].assign(d)
+            if clues[p_i].satisfied():
+                players.remove(p_i)
+            unassignedDominoes.remove(d)
+            for player in players:
+                if player == p_i:
+                    continue
+                
+                clues[player].valid_doms.discard(d)
+                clues[player].untracked_doms.discard(d)
+        
+        def makeMandatoryAssignments(unassignedDominoes, players, clues):
+            for p_i in players:
+                p = clues[p_i]
+                rem = p.check_remaining()   # todo: not easy
+                if rem == "greater":
+                    continue
+                if rem == "fail":
+                    return False
+                if rem == "recursive attempt":
+                    valid_perm = p.recursiveAssignment()
+                    if valid_perm:
+                        for d in valid_perm:
+                            baseMakeAssignment(d, p_i, unassignedDominoes, players, clues)
+                        return makeMandatoryAssignments(unassignedDominoes, players, clues)
+                    else:
+                        return False
+                
+                for d in p.valid_doms.copy():
+                    baseMakeAssignment(d, p_i, unassignedDominoes, players, clues) # pass by ref
+                
+                
+                
+                return makeMandatoryAssignments(unassignedDominoes, players, clues)
+            
+            return True  # success
+                
+            
+            
+        
+        states = []
+        perm_unknown = list(self.queue)  # create a deep copy of the queue
+        hidden_players = []
+
+        og_valid, og_untracked = [set() for _ in range(PLAYER_COUNT)], [set() for _ in range(PLAYER_COUNT)]
+        
+        #hand_sizes = []
+        
+        for i in range(PLAYER_COUNT):
+            if i != self.playerTurn:
+                hidden_players.append(i)
+                perm_unknown.extend(self.hands[i])
+                #hand_sizes.append(len(self.hands[i]))
+        
+        #hand_sizes.append(len(self.queue))
+        
+        #no_clues_count = 0
+        
+        for i in range(PLAYER_COUNT):
+            if i != self.playerTurn:
+                self.clues[i].reset(len(self.hands[i]), perm_unknown)
+                og_valid[i] = self.clues[i].valid_doms.copy()
+                og_untracked[i] = self.clues[i].untracked_doms.copy()
+                
+                #if og_valid[i] == og_untracked[i]:
+                    #no_clues_count += 1
+                    
+        """if no_clues_count == len(hidden_players):
+            for _ in range(count):
+                np.random.shuffle(perm_unknown)
+                temp = iter(perm_unknown)
+                
+                new_hands = [list(islice(temp, 0, size)) for size in hand_sizes]
+                new_queue = new_hands.pop()
+                
+                new_hands.insert(self.playerTurn, list(self.hands[self.playerTurn]))
+                
+                assert [len(hand) for hand in self.hands] == [len(hand) for hand in new_hands], "Bad hand sizes in fast generator"
+                assert len(new_queue) == len(self.queue), "Wrong new_queue size in fast generator"
+                
+                yield GameState(new_hands, deepcopy(self.trains), new_queue, self.playerTurn, deepcopy(self.clues), list(self.passed))"""
+                    
+        
+        #total_time = 0.0
+        
+        for i in range(count):
+            unknown_copy = list(perm_unknown)
+            np.random.shuffle(unknown_copy)
+            
+            #start = timer()
+            clues, unknown_copy = assignADomino(unknown_copy, list(hidden_players), deepcopy(self.clues))
+            #total_time += timer() - start
+            
+            
+            #if i == count -1:
+                #print(total_time)
+            
+            
+            new_hands = [[] for _ in range(PLAYER_COUNT)]
+            
+            for i in range(PLAYER_COUNT):
+                if i == self.playerTurn:
+                    new_hands[i] = list(self.hands[i])
+                else:
+                    assert len(self.hands[i]) == len(clues[i].hand), "new hand has a length of {} when it should be {}".format(len(clues[i].hand), len(self.hands[i]))
+                    new_hands[i] = list(clues[i].hand)
+            
+            #assert len(unknown_copy) == len(self.queue), "new_queue has length of {} when it should be {}.\nperm_unknown length: {}".format(len(unknown_copy), len(self.queue), len(perm_unknown))
+
+            yield GameState(new_hands,deepcopy(self.trains), unknown_copy, self.playerTurn, deepcopy(self.clues), list(self.passed))
+            
+            for i in range(PLAYER_COUNT):
+                if i != self.playerTurn:
+                    self.clues[i].reset(len(self.hands[i]), perm_unknown, og_valid = og_valid[i].copy(), og_untracked = og_untracked[i].copy())
+                
+        
+                
+        
+
     # creates a list of hidden information by adding the opponent's hand back into the queue
     # then generate a cloned gameState with the opponents hand generated from the shuffled
     # unknown list
-    def CloneAndRandomize(self, count):
+    def CloneAndRandomize_old(self, count):
         if PLAYER_COUNT == 2 and not self.queue:
-            return GameState(list(self.hands), deepcopy(self.trains), [], self.playerTurn, deepcopy(self.clues), self.passed)
+            yield (GameState(list(self.hands), deepcopy(self.trains), [], self.playerTurn, deepcopy(self.clues), list(self.passed)) for _ in range(count))
         
         states = []
-        perm_unknown = deepcopy(self.queue)  # create a deep copy of the queue
+        perm_unknown = list(self.queue)  # create a deep copy of the queue
         hidden_players = []
 
         og_allowed = [[] for _ in range(PLAYER_COUNT)]
@@ -312,17 +467,21 @@ class GameState():
                 hidden_players.append(i)
                 perm_unknown.extend(self.hands[i])
                 self.clues[i].reset()
-                og_allowed[i] = deepcopy(self.clues[i].allowed)
+                og_allowed[i] = list(self.clues[i].allowed)
+                
         
+
+        """for player in hidden_players:
+            self.clues[player]"""
         for _ in range(count):
-            unknown = deepcopy(perm_unknown)
+            unknown = list(perm_unknown)
             np.random.shuffle(unknown)
 
-            for i in range(PLAYER_COUNT):
-                if i != self.playerTurn:
-                    self.clues[i].reset(og_allowed[i])
+            for player in hidden_players:
+                #self.clues[player].reset(og_allowed[i])
+                self.clues[player].reset()
 
-            while len(unknown) != len(self.queue):  #TODO: find where dominos are being added to hands but not taken out of unknown
+            while len(unknown) != len(self.queue):
                 for i, player in enumerate(hidden_players):
                     if len(self.clues[player].hand) == len(self.hands[player]):
                         continue
@@ -363,7 +522,11 @@ class GameState():
             # copy over the current players hand
             new_hands[self.playerTurn] = list(self.hands[self.playerTurn])
 
-            yield GameState(new_hands, deepcopy(self.trains), unknown, self.playerTurn, deepcopy(self.clues), self.passed)
+            state = GameState(deepcopy(new_hands), deepcopy(self.trains), list(unknown), self.playerTurn, deepcopy(self.clues), list(self.passed))
+
+
+
+            yield state
 
     def random_insert(self, lst, item):
         lst.insert(randrange(len(lst)+1), item)
@@ -400,21 +563,20 @@ class GameState():
         
     # Creates a string id for the state which is used to identify nodes in the ISMCTS
     def _convertStateToId(self):
-        id = self.public_id + str(sorted(self.hands[self.playerTurn])) # current player's hand appended to public info
+        return self.get_public_info(self.playerTurn)
 
-        return id
+    def get_public_info(self, revealed_player):
+        public_id = 'T' + str(self.playerTurn)
 
-    def get_public_info(self, root = False):
-        public_id = 'Turn: ' + str(self.playerTurn)
+        public_id += ',' + str([INDEX2TUP[dom] for dom in sorted(self.hands[revealed_player])])
 
-        if root:
-            public_id += '|' + str([INDEX2TUP[dom] for dom in self.hands[self.playerTurn]])
-            public_id += '\n'
+        for i, hand in enumerate(self.hands):
+            if i == revealed_player:
+                continue
+            public_id += ',' + str(len(hand))
 
-        for i in range(PLAYER_COUNT):
-            public_id += '|' + str(len(self.hands[i]))
         for train in self.trains:
-            public_id += '|' + train.get_string()
+            public_id += ',' + train.get_string()
         
         return public_id
 
@@ -463,11 +625,48 @@ class GameState():
                 return temp
         else:
             return [0 for player in range(PLAYER_COUNT)]
+    
+    def clue_error_check(self, msg, info = None):
+        if not info:
+            clues_list = self.clues
+            hands = self.hands
+        else:
+            clues_list, hands = info
+        print(msg)
+        for i, hand in enumerate(hands):
+            clues = clues_list[i].clue_dict
+            counts = defaultdict(int)
+            for dom in hand:
+                l, h = INDEX2TUP[dom]
+                counts[l] += 1
+                if l!=h:
+                    counts[h] += 1
+            tuple_hand = [INDEX2TUP[dom] for dom in hand]
+            for tracked in clues.keys():
+                if clues[tracked] and counts[tracked] > clues[tracked][0]:
+                    print("clue_error")
+
+    def actions_error_check(self, available_pips):
+        pips = set(available_pips)
+        hand_pip_list = []
+        for tup in [INDEX2TUP[dom] for dom in self.hands[self.playerTurn]]:
+            hand_pip_list.extend(list(tup))
+        hand_pips = set(hand_pip_list)
+        tuple_hand = [INDEX2TUP[dom] for dom in self.hands[self.playerTurn]]
+
+        print("hand: {0}".format(tuple_hand))
+        print("available pips: {0}".format(pips))
+        print("hand pips: {0}".format(hand_pips))
+        print("intersection: {0}".format(pips.intersection(hand_pips)))
+        if pips.intersection(hand_pips):
+            print("action error")
+
+
 
     # creates a copy of the current board with the players hands swapped, makes the chosen action, creates a new gameState
     # then returns the new gameState as well as it's value and an indication of the game being over or not
     def takeAction(self, action):
-        new_hands = deepcopy(self.hands)
+        new_hands = [list(hand) for hand in self.hands]
 
         new_trains = deepcopy(self.trains)
 
@@ -488,16 +687,11 @@ class GameState():
                 print("all hands: {0}".format(new_hands))
                 exit(0)"""
 
-            low_pip, high_pip = INDEX2TUP[chosen_dom]
-            clues = self.clues[self.playerTurn].clue_dict
-            if (clues[low_pip] and clues[low_pip][0] == 0) or (clues[high_pip] and clues[high_pip][0] == 0): 
-                self.user_print()
-                print(INDEX2TUP[chosen_dom])
-                print(str(self.clues[self.playerTurn]))
-                quit(0)
 
             # update any relevant clues
             new_clues[self.playerTurn].play(chosen_dom)
+
+
 
             chosen_train = int(action/DOM_COUNT)
 
@@ -520,7 +714,7 @@ class GameState():
                 if train.unfinished and not (i == self.playerTurn and double_played and chosen_train == 0):
                     train.mark()
 
-        newState = GameState(new_hands, new_trains, deepcopy(self.queue), next_player, new_clues, list(self.passed))  # create new state
+        newState = GameState(new_hands, new_trains, list(self.queue), next_player, new_clues, list(self.passed))  # create new state
 
         return (newState, newState.value, newState.isEndGame)
 
@@ -562,10 +756,151 @@ class GameState():
             #self.clue_arr = []
             self.clue_dict = defaultdict(list)
             self.hand = []
+            self.required_size = 0
             self.counts = defaultdict(int)
             self.allowed = [True for i in range(len(INDEX2TUP))]
             self.og_allowed = []
+            
+            self.valid_doms = set()
+            self.untracked_doms = set()
+        
+        def satisfied(self):
+            return len(self.hand) == self.required_size
 
+        def assign(self, dom):
+            self.valid_doms.remove(dom)
+            self.untracked_doms.discard(dom)
+            self.hand.append(dom)
+            low_pip, high_pip = INDEX2TUP[dom]
+
+            remove_pips = []
+
+            self.counts[low_pip] += 1   # increment the counter for that pip value
+            if self.clue_dict[low_pip] and self.counts[low_pip] == self.clue_dict[low_pip][0]:  # if that pip value is being tracked and the max # has been reached
+                remove_pips.append(low_pip)
+            
+            if low_pip != high_pip: # only repeat this process for the higher pip value if this isn't a double
+                self.counts[high_pip] += 1
+                if self.clue_dict[high_pip] and self.counts[high_pip] == self.clue_dict[high_pip][0]:
+                    remove_pips.append(high_pip)
+                    
+            for pip in remove_pips:
+                self.valid_doms = self.valid_doms.difference(PIP2INDICES[pip])
+            
+        def check_remaining(self):
+            if self.satisfied():
+                return "greater"
+            
+            untracked_count = len(self.untracked_doms)
+            tracked_doms = []
+            double_tracked = []
+            for d in self.valid_doms.difference(self.untracked_doms): 
+                low_pip, high_pip = INDEX2TUP[d]
+                tracked_doms.append(d)
+                
+                if low_pip != high_pip and self.clue_dict[low_pip] and self.clue_dict[high_pip]:
+                    double_tracked.append(d)
+            
+            if untracked_count > self.required_size - len(self.hand):
+                return "greater"
+            
+            if not tracked_doms:
+                if untracked_count == self.required_size:
+                    return "exact"
+                return "fail"
+
+            rem_count = self.required_size - untracked_count
+            pip_dict = defaultdict(list)
+            
+            for dom in tracked_doms:
+                if dom not in double_tracked:
+                    low_pip, high_pip = INDEX2TUP[dom]
+                    if self.clue_dict[low_pip]:
+                        pip_dict[low_pip].append(dom)
+                    else:
+                        pip_dict[high_pip].append(dom)
+            
+            # treat double_tracked doms that share 1 or less pips with all of the others as regular tracked doms
+            for dom in double_tracked:
+                low_pip, high_pip = INDEX2TUP[dom]
+                
+                if not pip_dict[low_pip]:
+                    pip_dict[high_pip].append(high_pip)
+                    double_tracked.remove(dom)
+                elif not pip_dict[high_pip]:
+                    pip_dict[low_pip].append(low_pip)
+                    double_tracked.remove(dom)
+            
+            if double_tracked:
+                return "recursive attempt"
+            
+            allowed_dict = defaultdict(lambda: defaultdict(list))
+            for pip in pip_dict.keys():
+                if pip_dict[pip]:
+                    allowed = min(len(pip_dict[pip]),  self.clue_dict[pip][0] - self.counts[pip])
+                    allowed_dict[allowed][pip] = pip_dict[pip]
+            
+            count = 0
+            for x_of in allowed_dict.keys():
+                count += x_of * len(allowed_dict[x_of].keys())
+            
+            if count > rem_count:
+                return "greater"
+            
+            if count == rem_count:
+                return "exact"
+            
+            
+            # at this point the only way to assign enough dominoes is by assigning a domino w/ both pips
+            # being tracked and shared by other unassigned doms so make a recursive attempt at drawing enough
+            return "recursive attempt"
+        
+        def recursiveAssignment(self):
+            def assignmentAttempt(assigned, rem_doms, counts, clue_dict, rem_count):
+                if rem_count == 0:
+                    return assigned
+                if len(rem_doms) < rem_count:
+                    return None
+                
+                for dom in rem_doms:
+                    left_doms, new_counts = updateRemaining(dom, rem_doms, deepcopy(counts), clue_dict)
+                    
+                    attempt = assignmentAttempt(list(assigned) + [dom], left_doms, new_counts, clue_dict, rem_count - 1)
+                    
+                    if attempt:
+                        return attempt
+                
+                return None
+                
+                
+            def updateRemaining(dom, rem_doms, counts, clue_dict):
+                low_pip, high_pip = INDEX2TUP[dom]
+                
+                rem_cpy = rem_doms.copy()
+                rem_cpy.remove(dom)
+                
+                remove_pips = []
+                
+                if clue_dict[low_pip]:
+                    counts[low_pip] += 1
+                    if counts[low_pip] == clue_dict[low_pip][0]:
+                        remove_pips.append(low_pip)
+            
+                if low_pip != high_pip: # only repeat this process for the higher pip value if this isn't a double
+                    counts[high_pip] += 1
+                    if clue_dict[high_pip] and counts[high_pip] == clue_dict[high_pip][0]:
+                        remove_pips.append(high_pip)
+                        
+                if remove_pips:   
+                    for pip in remove_pips:
+                        rem_cpy = rem_cpy.difference(PIP2INDICES[pip])
+                
+                return rem_cpy, counts
+            
+
+            return assignmentAttempt([], self.valid_doms.copy(), self.counts, self.clue_dict, self.required_size - len(self.hand))
+        
+            
         # sets the maximum count for each pip value that the player
         # failed to play on. Then since the player just drew increment
         # the maximum count for each tracked pip value by 1.
@@ -585,6 +920,7 @@ class GameState():
         def play(self, dom):
             low_pip, high_pip = INDEX2TUP[dom]
 
+
             """if self.clue_dict[low_pip] or self.clue_dict[high_pip]:
                 for i in range(len(self.clue_arr[self.playerTurn])):
                     if self.clue_arr[i][0] == low_pip:
@@ -602,6 +938,7 @@ class GameState():
             
             if self.clue_dict[low_pip]:
                 if self.clue_dict[low_pip][0] == 0:
+                    print("invalid clue.play()")
                     print(self.clue_dict)
                     print(INDEX2TUP[dom])
                     exit(0)
@@ -612,6 +949,7 @@ class GameState():
             
             if self.clue_dict[high_pip] and low_pip != high_pip:
                 if self.clue_dict[high_pip][0] == 0:
+                    print("invalid clue.play()")
                     print(self.clue_dict)
                     print(INDEX2TUP[dom])
                     exit(0)
@@ -781,18 +1119,36 @@ class GameState():
                             if not self.clue_dict[other_pip] or self.counts[other_pip] != self.clue_dict[other_pip][0]:
                                 self.allowed[disallowed] = True
             
-        def reset(self, og_allowed = None):
+        def reset(self, required_size, unassignedDominoes, og_valid = None, og_untracked = None): # TODO: add list of allowed dominos 
             self.hand = []
+            self.required_size = required_size
             self.counts = defaultdict(int)
-            if og_allowed:
-                self.allowed = deepcopy(og_allowed)
+            if og_valid:
+                self.valid_doms = og_valid
+                self.untracked_doms = og_untracked
             else:
-                self.allowed = [True for i in range(len(INDEX2TUP))]
-
-                for i, doms in enumerate(PIP2INDICES):
-                    if self.clue_dict[i] and not self.clue_dict[i][0]:
-                        for dom in doms:
-                            self.allowed[dom] = False
+                self.valid_doms = set()
+                self.untracked_doms = set()
+                
+                """available_counts = defaultdict(int)
+                
+                for dom in unassignedDominoes:
+                    low_pip, high_pip = INDEX2TUP(dom)
+                    available_counts[low_pip] += 1
+                    
+                    if low_pip != high_pip:"""
+                        
+                
+                for dom in unassignedDominoes:
+                    low_pip, high_pip = INDEX2TUP[dom]
+                    
+                    if not self.clue_dict[low_pip] or self.clue_dict[low_pip][0] != 0:
+                        if low_pip == high_pip or not self.clue_dict[high_pip] or self.clue_dict[high_pip][0] != 0:
+                            self.valid_doms.add(dom)
+                            
+                            if not (self.clue_dict[low_pip] or self.clue_dict[high_pip]):
+                                self.untracked_doms.add(dom) 
+                            
         
         def __str__(self):
             return str(self.clue_dict)

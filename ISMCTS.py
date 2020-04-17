@@ -9,7 +9,6 @@ import loggers as lg
 
 
 
-
 import networkx as nx
 #from networkx.drawing.nx_agraph import graphviz_layout
 import matplotlib.pyplot as plt
@@ -24,7 +23,8 @@ class Node():
 		self.id = id
 		self.render_id = 0
 		self.edges = []
-		self.inEdges = []		
+		self.inEdges = []	
+		self.edge_actions = []	
 
 	def isLeaf(self):
 		if len(self.edges) > 0 and not self.state.isEndGame:
@@ -45,6 +45,7 @@ class Edge():
 		self.outNode = outNode
 		self.playerTurn = inNode.state.playerTurn
 		self.action = action
+		
 
 		self.stats =  {
 					'N': 0,
@@ -64,6 +65,7 @@ class MCTS():
 		self.tree = {}
 		self.cpuct = cpuct
 		self.addNode(root)
+		self.converge_count = 0
 	
 	def __len__(self):
 		return len(self.tree)
@@ -177,11 +179,7 @@ class MCTS():
 	def moveToLeaf_rollout(self, agent):
 		breadcrumbs = []
 		currentNode = self.root
-
-		if currentNode.edges == []:
-			for action in currentNode.state.allowedActions:
-				new_edge = Edge(currentNode, None, action)
-				currentNode.edges.append((action, new_edge))
+		root_player = currentNode.state.playerTurn
 	
 
 		done = 0
@@ -201,12 +199,12 @@ class MCTS():
 			if untried_actions == []:	# if all actions have been explored update the stats of currentNode's edges and choose the highest Q+U
 				for idx, (action, edge) in enumerate(currentNode.edges):
 					if action in legal_actions:	#TODO: make legal actions a dict
-						visits = edge.bandit_stats['V']
+						visits = float(edge.bandit_stats['V'])
 
 						#calculate UCB1 value for each edge
 						# (total reward / # of visits) + exploration_constant * sqrt(log(# of parent visits)/# of visits)
 
-						ucb_temp = (edge.bandit_stats['R'] / visits) + 0.7 * np.math.sqrt(np.math.log(edge.bandit_stats['P']) / visits)
+						ucb_temp = (float(edge.bandit_stats['R']) / visits) + 0.7 * np.math.sqrt(np.math.log(edge.bandit_stats['P']) / visits)
 						#only hold the MAX UCB value and then move on to next (action, edge)
 						if ucb_temp > max_ucb:
 							max_ucb = ucb_temp
@@ -216,13 +214,14 @@ class MCTS():
 				simulationAction = np.random.choice(untried_actions)
 				chosen_edge = None
 
-				for i, action in enumerate(currentNode.state.allowedActions):	# insert new action edge pairs into currentNode.edges
-					if action in untried_actions and action not in existing_untried:	# dirty but works
-						new_edge = Edge(currentNode, None, action)
-						currentNode.edges.append((action, new_edge))
+				new_untried = frozenset(untried_actions) - frozenset(existing_untried)
 
-						if action == simulationAction:
-							chosen_edge = new_edge
+				for action in new_untried:
+					new_edge = Edge(currentNode, None, action)
+					currentNode.edges.append((action, new_edge))
+
+					if action == simulationAction:
+						chosen_edge = new_edge
 
 				if chosen_edge == None:
 					for (action, edge) in currentNode.edges:
@@ -236,21 +235,32 @@ class MCTS():
 
 
 			
-
-			newState, value_tuple, done = currentNode.state.takeAction(simulationAction) #the value of the newState from the POV of the new playerTurn
-
+			try:
+				newState, value_tuple, done = currentNode.state.takeAction(simulationAction) #the value of the newState from the POV of the new playerTurn
+				while len(newState.allowedActions) < 2 and not newState.isEndGame:
+					if len(newState.allowedActions) == 1:
+						simulationAction = newState.allowedActions[0]
+					else:
+						simulationAction = -1
+					newState, value_tuple, done = newState.takeAction(simulationAction)
+			except:
+				print("error")
 			# if a new action is being explored add the resulting node to the tree
 			# and store that node in the corresponding edge's outNode as well as the
 			# edge in the node's inEdge
 			if untried_actions != []:
-				id = newState.id
+				if newState.playerTurn == root_player:
+					state_id = newState.id
+				else:
+					state_id = gen_id(newState, root_player) #TODO: here
 				
-				if id not in self.tree:
-					node = Node(newState, id)
+				if state_id not in self.tree:
+					node = Node(newState, state_id)
 					self.addNode(node)
 					#lg.logger_mcts.info('added node...%s', node.id)
 				else:
-					node = self.tree[id]
+					self.converge_count += 1
+					node = self.tree[state_id]
 					#lg.logger_mcts.info('existing node...%s',node.id)
 					node.state = newState
 
@@ -284,8 +294,19 @@ class MCTS():
 		else:
 			value = value_tuple[currentNode.state.playerTurn]
 
+		if not currentNode.state.isEndGame:
+			existing_actions = []
+			for (action, _) in currentNode.edges:
+				existing_actions.append(action)
+
+			for action in currentNode.state.allowedActions:
+				if action not in existing_actions:
+					currentNode.edges.append((action, Edge(currentNode, 0, action)))
+
 		return currentNode, value, done, breadcrumbs
 
+	
+	
 	def backFill(self, leaf, value, breadcrumbs):
 		lg.logger_mcts.info('------DOING BACKFILL------')
 
@@ -351,75 +372,12 @@ class MCTS():
 		#p.view(tempfile.mktemp('.gv'))  
 		p.write_png('ISMCTS_' + str(sims) + '.png')
 		
-		#p.write('./')
-	# creates a list of edges using a BFS to use for rendering
-	def BFS(self): 
-		all_domino = [(0, 0), (0, 1), (1, 1), (0, 2), (1, 2), (2, 2), (0, 3), (1, 3), (2, 3), (3, 3), (0, 4),
-                           (1, 4), (2, 4), (3, 4), (4, 4), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5), (5, 5), (0, 6),
-                           (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6)]
-		visited = {}
-		edges = []
-		# Mark all the vertices as not visited 
-		visited = [False] * (len(self.tree)) 
-
-		root_player = self.root.state.playerTurn
-
-		# Create a queue for BFS 
-		queue = [] 
-
-		# Mark the source node as  
-		# visited and enqueue it 
-		queue.append(self.root) 
-		visited[self.root.render_id] = True
-
-		while queue: 
-
-			# Dequeue a vertex from  
-			# queue and print it 
-			s = queue.pop(0)
-
-			if s.state.playerTurn == root_player:
-				parent_id = s.state.get_public_info(True)
-			else:
-				parent_id = s.id
-
-			# Get all adjacent vertices of the 
-			# dequeued vertex s. If a adjacent 
-			# has not been visited, then mark it 
-			# visited and enqueue it 
-			for i in s.edges:
-				if i[1].outNode != None:
-					if i[1].outNode.state.playerTurn == root_player:
-						child_id = i[1].outNode.state.get_public_info(True)
-					else:
-						child_id = i[1].outNode.id
-
-					#edges.append(((s.render_id,i[1].outNode.render_id), i[0]))
-					edges.append(((parent_id, child_id), str(all_domino[i[0] % 28]) + '\n' + str(i[1].stats['Q']))) 
-					if visited[i[1].outNode.render_id] == False: 
-						queue.append(i[1].outNode) 
-						visited[i[1].outNode.render_id] = True
-
-		return edges
-
+		#p.write('./'
 
 	def addNode(self, node):
 		node.render_id = len(self.tree)
 		self.tree[node.id] = node
-# ID's will all be based on the perspective of the root player
-# i.e. the ID will either be the actual state ID if the root player is the
-# current player in that state or it will be the ID of the last state where
-# the root player was the current player followed by the series of moves that
-# led to this state
-def gen_id(inEdge, root_player):
-	"""action_trail = [inEdge.action]
-	temp_node = inEdge.inNode
-	while temp_node.playerTurn != root_player:
-		action_trail.append(temp_node.inEdges[0].action)
-		temp_node = temp_node.inEdges[0].inNode
-	
-	id = temp_node.state.id
-	while action_trail != []:
-		id += '|' + str(action_trail.pop())"""
 
-	return inEdge.inNode.state.get_public_info()
+# ID's will all be based on the public information from the perspective of the root player
+def gen_id(state, root_player):
+	return state.get_public_info(root_player)
