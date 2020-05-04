@@ -15,7 +15,7 @@ from loss import softmax_cross_entropy_with_logits
 
 import loggers as lg
 
-import keras.backend as K
+from keras import backend as K
 
 from settings import run_folder, run_archive_folder
 
@@ -181,7 +181,7 @@ class Residual_CNN(Gen_Model):
 		x = LeakyReLU()(x)
 
 		x = Dense(
-			1
+			self.output_dim
 			, use_bias=False
 			, activation='tanh'
 			, kernel_regularizer=regularizers.l2(self.reg_const)
@@ -192,7 +192,7 @@ class Residual_CNN(Gen_Model):
 
 		return (x)
 
-	def policy_head(self, x):
+	"""def policy_head(self, x):
 
 		x = Conv2D(
 		filters = 2
@@ -217,7 +217,7 @@ class Residual_CNN(Gen_Model):
 			, name = 'policy_head'
 			)(x)
 
-		return (x)
+		return (x)"""
 
 	def _build_model(self):
 
@@ -234,8 +234,7 @@ class Residual_CNN(Gen_Model):
 
 		model = Model(inputs=[main_input], outputs=[vh])
 		model.compile(loss={'value_head': 'mean_squared_error'},
-			optimizer=SGD(lr=self.learning_rate, momentum = config.MOMENTUM),	
-			loss_weights={'value_head': 0.5}	
+			optimizer=SGD(lr=self.learning_rate, momentum = config.MOMENTUM),		
 			)
 
 		return model

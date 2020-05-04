@@ -1,6 +1,6 @@
 from math import sqrt, log
 import random
-
+from config import PLAYER_COUNT, TEAM_SIZE
 from timeit import default_timer as timer
 
 class Node:
@@ -44,12 +44,12 @@ class Node:
         self.childNodes.append(n)
         return n
     
-    def Update(self, terminalState):
+    def Update(self, value):
         """ Update this node - increment the visit count by one, and increase the win count by the result of terminalState for self.playerJustMoved.
         """
         self.visits += 1
         if self.playerJustMoved is not None:
-            self.wins += terminalState.value[self.playerJustMoved]
+            self.wins += value[self.playerJustMoved]
 
     def __repr__(self):
         return "[M:{} W/V/A: {:4}/{:4}/{:4}]".format(self.move, self.wins, self.visits, self.avails)
@@ -74,7 +74,7 @@ class Node:
             s += str(c) + "\n"
         return s
 
-def ISMCTS(rootstate, itermax, verbose = False):
+def ISMCTS(rootstate, itermax, agent = None, verbose = False):
     """ Conduct an ISMCTS search for itermax iterations starting from rootstate.
         Return the best move from the rootstate.
     """
@@ -90,8 +90,10 @@ def ISMCTS(rootstate, itermax, verbose = False):
         
         start = timer()
         
+        player = state.playerTurn   #TODO: check if this line is unnecessary 
         # Select
         while not state.isEndGame and node.GetUntriedMoves(state.allowedActions) == []: # node is fully expanded and non-terminal
+            player = state.playerTurn
             node = node.UCBSelectChild(state.allowedActions)
             state, _, _ = state.takeAction(node.move)
             
@@ -110,17 +112,42 @@ def ISMCTS(rootstate, itermax, verbose = False):
             node = node.AddChild(m, player) # add child and descend tree
 
         # Simulate
-        while not state.isEndGame: # while state is non-terminal
-            if state.allowedActions == []:
-                state, _, _ = state.takeAction(-1)
-            elif len(state.allowedActions) == 1:
-                state, _, _ = state.takeAction(state.allowedActions[0])
+        if state.isEndGame: # if the state is terminal use it's value
+            values = state.value
+        elif agent: # if an agent was passed to the function predict value instead of rolling out
+            values = agent.predict_value(state)
+            """values = [0 for _ in range(PLAYER_COUNT)]
+            
+            # values should be based on the perspective of the player that made the move creating this state
+            # ex. In a two player game w/ players 0 and 1
+            # if 0 makes a move that creates the current state
+            # where 0 is the winner the values would be [1, -1]
+            if TEAM_SIZE == 1:
+                for i in range(PLAYER_COUNT):
+                    if i == player:
+                        values[i] = value
+                    else:
+                        values[i] = -value
             else:
-                state, _, _ = state.takeAction(random.choice(state.allowedActions))
+                for i in range(PLAYER_COUNT):
+                    if i % TEAM_SIZE == player % TEAM_SIZE: # if player i was on the same team as the player who made the last move
+                        values[i] = value
+                    else:
+                        values[i] = -value"""
+        else:
+            while not state.isEndGame: # while state is non-terminal
+                if state.allowedActions == []:
+                    state, _, _ = state.takeAction(-1)
+                elif len(state.allowedActions) == 1:
+                    state, _, _ = state.takeAction(state.allowedActions[0])
+                else:
+                    state, _, _ = state.takeAction(random.choice(state.allowedActions))
+            
+            values = state.value
 
         # Backpropagate
         while node != None: # backpropagate from the expanded node and work back to the root node
-            node.Update(state)
+            node.Update(values)
             node = node.parentNode
         
 
@@ -130,4 +157,4 @@ def ISMCTS(rootstate, itermax, verbose = False):
 
     #print("Time to run ismcts: {}, time getting moves: {}, extra actions taken: {}".format(total_time, untried_time, actions_taken))
     
-    return max(rootnode.childNodes, key = lambda c: c.visits).move # return the move that was most visited
+    return rootnode.childNodes # return the child nodes of the root

@@ -1,44 +1,49 @@
 from agent import *
 from funcs import *
 from config import *
+import config
 from game import *
 import loggers as lg
 import random
+from model import Residual_CNN
+import initialise
 
-def print_problem(state):
-    temp = []
-
-    for i in range(PLAYER_COUNT):
-        if i == state.playerTurn:
-            continue
-        temp.extend(state.hands[i])
-    
-    temp.extend(state.queue)
-
-    temp = sorted(temp)
-    hidden_doms = set([INDEX2TUP[dom] for dom in temp])
-
-    print('Active Player: {0}'.format(state.playerTurn))
-
-    for i in range(PLAYER_COUNT):
-        if i == state.playerTurn:
-            continue
-        print('Player {0}\n\tHand Size: {1}\n\tClues: {2}'.format(i, len(state.hands[i]), str(state.clues[i])))
-
-    print("Hidden Dominos: {0}".format(hidden_doms))
-
-
-rollout_test = True
+pred_test = False
+rollout_test = False
+nn_test = True
 game = Game()
 
+if pred_test:
+    nn = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + game.grid_shape, [1],\
+                          config.HIDDEN_CNN_LAYERS, 0)
+    player = Agent('player', game.state_size, config.MCTS_SIMS, config.CPUCT, [nn])
+    
+    print(player.predict_value(game.gameState))
+    
+    exit()
+
 if rollout_test:
-    rollout_agent = testing_agent(MCTS_SIMS, 'rollout_agent', game.action_size)
+    rollout_agent = testing_agent(MCTS_SIMS, 'trained_agent', game.action_size)
     random_agent = User('random_agent', game.state_size, game.action_size)
 
     if PLAYER_COUNT == 2:
         version_tournament([rollout_agent, random_agent], 1000, lg.logger_tourney)
     else:
         version_tournament([rollout_agent, random_agent, random_agent, random_agent], 400, lg.logger_tourney)
+
+if nn_test:
+    nn = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + game.grid_shape, PLAYER_COUNT,
+                            config.HIDDEN_CNN_LAYERS, 0)
+    m_tmp = nn.read(game.name, initialise.INITIAL_RUN_NUMBER, initialise.INITIAL_MODEL_VERSION[0])
+    nn.model.set_weights(m_tmp.get_weights())
+    trained_agent = Agent('trained_agent', game.state_size, game.action_size, config.MCTS_SIMS, config.CPUCT, [nn])
+    random_agent = User('random_agent', game.state_size)
+    
+    version_tournament([trained_agent, random_agent, random_agent, random_agent], 400, lg.logger_tourney)
+    
+    quit()
+    
+    
 
 randomization_test = False
 

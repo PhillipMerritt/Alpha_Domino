@@ -120,3 +120,7 @@ __pycache__/
 .vscode/*
 .vscode/
 *.png
+
+output/*
+pyimagesearch/*
+train.py

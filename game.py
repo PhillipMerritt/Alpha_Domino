@@ -21,7 +21,7 @@ class Game:
             (DOM_COUNT * len(trains)), dtype=np.int)]
         #self.grid_shape = (4, DOM_COUNT)  # grid shape is 7xDOM_COUNT
         #self.input_shape = self.grid_shape = self.gameState.binary.shape  # input shape for the neural network is the shape of the binary state representation
-        self.input_shape = self.grid_shape = (2 * PLAYER_COUNT + 3, DOM_COUNT)
+        self.input_shape = self.grid_shape = (len(self.gameState.binary), DOM_COUNT)
         self.name = 'mexican_train'
         self.state_size = len(self.gameState.binary)  # size of the entire game state # TODO: look into this to see if it could be effecting anything
 
@@ -152,6 +152,7 @@ class GameState():
 
         self.allowedActions = self._allowedActions()  # generates the list of possible actions that are then given to the neural network
 
+        
         if len(self.allowedActions) != 0:
             self.passed[self.playerTurn] = False
         
@@ -301,7 +302,7 @@ class GameState():
 
     def CloneAndRandomize(self, count):
         if PLAYER_COUNT == 2 and not self.queue:
-            yield (GameState(list(self.hands), deepcopy(self.trains), [], self.playerTurn, deepcopy(self.clues), list(self.passed)) for _ in range(count))
+            yield (GameState(list(self.hands), [train.copy() for train in self.trains], [], self.playerTurn, [clue.copy() for clue in self.clues], list(self.passed)) for _ in range(count))
             
         def assignADomino(unassignedDominoes, players, clues):
             if not players:
@@ -317,7 +318,7 @@ class GameState():
                 if d not in p.valid_doms:
                     continue
                 
-                valid_players, valid_unassigned = makeAssignment(d, p_i, list(unassignedDominoes), list(players), deepcopy(clues))
+                valid_players, valid_unassigned = makeAssignment(d, p_i, list(unassignedDominoes), list(players), [clue.copy() for clue in clues])
                 if valid_players:
                     return valid_players, valid_unassigned
 
@@ -342,8 +343,9 @@ class GameState():
                 clues[player].untracked_doms.discard(d)
         
         def makeMandatoryAssignments(unassignedDominoes, players, clues):
-            for p_i in players:
+            for p_i in list(players):
                 p = clues[p_i]
+                
                 rem = p.check_remaining()   # todo: not easy
                 if rem == "greater":
                     continue
@@ -358,7 +360,9 @@ class GameState():
                     else:
                         return False
                 
-                for d in p.valid_doms.copy():
+                while not p.satisfied():
+                    d = p.valid_doms.pop()
+                    p.valid_doms.add(d)
                     baseMakeAssignment(d, p_i, unassignedDominoes, players, clues) # pass by ref
                 
                 
@@ -416,17 +420,21 @@ class GameState():
         #total_time = 0.0
         
         for i in range(count):
-            unknown_copy = list(perm_unknown)
-            np.random.shuffle(unknown_copy)
-            
-            #start = timer()
-            clues, unknown_copy = assignADomino(unknown_copy, list(hidden_players), deepcopy(self.clues))
-            #total_time += timer() - start
-            
-            
-            #if i == count -1:
-                #print(total_time)
-            
+            clues = None
+            count = 0
+            while clues == None:
+                unknown_copy = list(perm_unknown)
+                np.random.shuffle(unknown_copy)
+                
+                hidden_players_copy = list(hidden_players)
+                if count > 10:
+                    np.random.shuffle(hidden_players_copy)
+                if count == 1000:
+                    print("randomization loop")
+                    exit()
+                
+                clues, unknown_copy = assignADomino(unknown_copy, hidden_players_copy, [clue.copy() for clue in self.clues])
+                count += 1
             
             new_hands = [[] for _ in range(PLAYER_COUNT)]
             
@@ -437,9 +445,9 @@ class GameState():
                     assert len(self.hands[i]) == len(clues[i].hand), "new hand has a length of {} when it should be {}".format(len(clues[i].hand), len(self.hands[i]))
                     new_hands[i] = list(clues[i].hand)
             
-            #assert len(unknown_copy) == len(self.queue), "new_queue has length of {} when it should be {}.\nperm_unknown length: {}".format(len(unknown_copy), len(self.queue), len(perm_unknown))
+            assert len(unknown_copy) == len(self.queue), "new_queue has length of {} when it should be {}.\nperm_unknown length: {}".format(len(unknown_copy), len(self.queue), len(perm_unknown))
 
-            yield GameState(new_hands,deepcopy(self.trains), unknown_copy, self.playerTurn, deepcopy(self.clues), list(self.passed))
+            yield GameState(new_hands,[train.copy() for train in self.trains], unknown_copy, self.playerTurn, [clue.copy() for clue in self.clues], list(self.passed))
             
             for i in range(PLAYER_COUNT):
                 if i != self.playerTurn:
@@ -534,27 +542,31 @@ class GameState():
     # converts the state to a (2 * player_count + 3)xDOM_COUNT binary representation 
     # (current_player's hand, size of each other player's hand, each player's train, mexican train, marked train indices, available heads to play on)
     def _binary(self):  # TODO signify multiples of a single head value being available
-
-        state = np.zeros((2 * PLAYER_COUNT + 3, DOM_COUNT), dtype=np.int)
-        state[0][self.hands[self.playerTurn]] = 1   # current player's hand
-        for i in range(1, PLAYER_COUNT):
-            state[i][len(self.hands[(self.playerTurn + i) % PLAYER_COUNT])] = 1 # length of each other player's hand
-
-        for i in range(PLAYER_COUNT): # each train
-            state[i + PLAYER_COUNT] = self.trains[(self.playerTurn + i) % PLAYER_COUNT].get_binary()
         
-        state[2*PLAYER_COUNT] = self.trains[PLAYER_COUNT].get_binary()
+        def get_player_rep(player, binary):
+            offset = 2 * player
+            for dom in self.hands[player]:
+                binary[offset][dom] = 1
+            
+            if self.playerTurn == player:
+                binary[offset + 1].fill(1)
+                
 
+        state = np.zeros((5 * PLAYER_COUNT + 4, DOM_COUNT), dtype=np.int)
+        
         for i in range(PLAYER_COUNT):
-            index = (self.playerTurn + i) % PLAYER_COUNT
-            if self.trains[index].marked:
-                state[2 * PLAYER_COUNT + 1][index] = 1  # train marked
-                state[2 * PLAYER_COUNT + 2][self.trains[index].head] = 1 # available head to play on
-            elif i == 0:
-                state[2 * PLAYER_COUNT + 2][self.trains[index].head] = 1 # available head to play on
+            get_player_rep(i, state)
+
+        offset = 2 * PLAYER_COUNT
+        for i in range(PLAYER_COUNT): # each train
+            self.trains[i].get_binary(state, offset)
+            offset += 3
+            
         
-        state[2 * PLAYER_COUNT + 1][PLAYER_COUNT] = 1  # mexican train marked
-        state[2 * PLAYER_COUNT + 2][self.trains[PLAYER_COUNT].head] = 1 # available head to play on
+        self.trains[PLAYER_COUNT].get_binary(state, offset)
+        
+        state[-1][len(self.queue)] = 1
+
 
         return state
 
@@ -668,9 +680,9 @@ class GameState():
     def takeAction(self, action):
         new_hands = [list(hand) for hand in self.hands]
 
-        new_trains = deepcopy(self.trains)
+        new_trains = [train.copy() for train in self.trains]
 
-        new_clues = deepcopy(self.clues)
+        new_clues = [clue.copy() for clue in self.clues]
         
 
         next_player = (self.playerTurn + 1) % PLAYER_COUNT
@@ -751,7 +763,7 @@ class GameState():
 
         print('--------------')
     
-    class Clues():
+    class Clues:
         def __init__(self):
             #self.clue_arr = []
             self.clue_dict = defaultdict(list)
@@ -768,6 +780,7 @@ class GameState():
             return len(self.hand) == self.required_size
 
         def assign(self, dom):
+            assert not self.satisfied(), "assigning a domino to a satisfied player"
             self.valid_doms.remove(dom)
             self.untracked_doms.discard(dom)
             self.hand.append(dom)
@@ -805,7 +818,7 @@ class GameState():
                 return "greater"
             
             if not tracked_doms:
-                if untracked_count == self.required_size:
+                if untracked_count == self.required_size - len(self.hand):
                     return "exact"
                 return "fail"
 
@@ -863,7 +876,7 @@ class GameState():
                     return None
                 
                 for dom in rem_doms:
-                    left_doms, new_counts = updateRemaining(dom, rem_doms, deepcopy(counts), clue_dict)
+                    left_doms, new_counts = updateRemaining(dom, rem_doms, counts.copy(), clue_dict)
                     
                     attempt = assignmentAttempt(list(assigned) + [dom], left_doms, new_counts, clue_dict, rem_count - 1)
                     
@@ -1152,6 +1165,21 @@ class GameState():
         
         def __str__(self):
             return str(self.clue_dict)
+        
+        def copy(self):
+            new_clues = self.__class__()
+            for key in self.clue_dict.keys():
+                new_clues.clue_dict[key] = list(self.clue_dict[key])
+            new_clues.hand = list(self.hand)
+            new_clues.required_size = self.required_size
+            new_clues.counts = self.counts.copy()
+            new_clues.allowed = list(self.allowed)
+            new_clues.og_allowed = list(self.og_allowed)
+            new_clues.valid_doms = self.valid_doms.copy()
+            new_clues.untracked_doms = self.untracked_doms.copy()
+            
+            return new_clues
+            
 
 
 class Train:
@@ -1160,6 +1188,14 @@ class Train:
         self.head = HEAD_VALUES[first_dom]
         self.marked = marked
         self.unfinished = False
+        
+    def copy(self):
+        new_train = self.__class__(0, self.marked)
+        new_train.doms = list(self.doms)
+        new_train.head = self.head
+        new_train.unfinished = self.unfinished
+        
+        return new_train
 
     def add(self, dom):
         self.doms.append(dom)
@@ -1193,10 +1229,12 @@ class Train:
     def unfinish(self):
         self.unfinished = True
     
-    def get_binary(self):
-        b = np.zeros(DOM_COUNT, dtype = np.int)
-        b[self.doms] = 1
-        return b
+    def get_binary(self, binary, offset):
+        binary[offset][self.doms] = 1
+        binary[offset + 1][self.head] = 1
+        if self.marked:
+            binary[offset + 2].fill(1)
+
     
     def get_string(self):
         sorted_doms = sorted(self.doms)
