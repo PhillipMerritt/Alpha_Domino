@@ -93,15 +93,20 @@ best_NN = []
 
 # create an untrained neural network objects from the config file
 for i in range(DECISION_TYPES):
+    if len(env.grid_shape) == 2:
+        shape = (1,) + env.grid_shape
+    else:
+        shape = env.grid_shape
+    
     if TEAM_SIZE > 1:
-        current_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, PLAYER_COUNT / TEAM_SIZE,
+        current_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, PLAYER_COUNT / TEAM_SIZE,
                             config.HIDDEN_CNN_LAYERS, i))
-        best_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, PLAYER_COUNT / TEAM_SIZE,
+        best_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, PLAYER_COUNT / TEAM_SIZE,
                                     config.HIDDEN_CNN_LAYERS, i))
     else:
-        current_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, PLAYER_COUNT,
+        current_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, PLAYER_COUNT,
                             config.HIDDEN_CNN_LAYERS, i))
-        best_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, PLAYER_COUNT,
+        best_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, PLAYER_COUNT,
                                     config.HIDDEN_CNN_LAYERS, i))
 
 best_player_version = []
@@ -129,8 +134,8 @@ print('\n')
 
 ######## CREATE THE PLAYERS ########
 
-current_player = Agent('current_player', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, current_NN)
-best_player = Agent('best_player', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, best_NN)
+current_player = Agent('current_player', env.action_size, config.MCTS_SIMS, config.CPUCT, current_NN)
+best_player = Agent('best_player', env.action_size, config.MCTS_SIMS, config.CPUCT, best_NN)
 
 if initialise.INITIAL_ITERATION != None:
     iteration = initialise.INITIAL_ITERATION
@@ -142,10 +147,10 @@ if play_vs_self:
     reload(lg)
     reload(config)
     user_players = []
-    user_players.append(User('User1', env.state_size))
-    user_players.append(User('User2', env.state_size))
-    user_players.append(User('User3', env.state_size))
-    user_players.append(User('User4', env.state_size))
+    user_players.append(User('User1'))
+    user_players.append(User('User2'))
+    user_players.append(User('User3'))
+    user_players.append(User('User4'))
 
     playMatches(user_players,1,lg.logger_main,500)
 
@@ -154,21 +159,23 @@ if play_vs_agent:
 
     # assumes that games have an even # of players
     for i in range(PLAYER_COUNT, 2):
-        players.append(User('User' + str((i / 2) + 1), env.state_size))
+        players.append(User('User' + str((i / 2) + 1)))
         players.append(best_player)
 
     playMatches(players,1,lg.logger_main,0)
     exit(0)
 
-if len(memories[0].ltmemory) < memories[0].MEMORY_SIZE:
+if len(memories[0].ltmemory) < MIN_MEMORY_SIZE:
     memories = fillMem(memories)
 
 trained = False
-epsilon = init_epsilon = 0.75
+epsilon = init_epsilon = 0.70
 
 while 1:
 
     iteration += 1
+    
+    
     reload(lg)
     reload(config)
 
@@ -182,28 +189,30 @@ while 1:
     best_players = [best_player for i in range(PLAYER_COUNT)]
 
     ######## SELF PLAY ########
+    epsilon = init_epsilon - iteration * (init_epsilon / 50.0)
+    
     print('Current epsilon: {}'.format(epsilon))
     print('SELF PLAYING ' + str(config.EPISODES) + ' EPISODES...')
     _, memories = playMatches(best_players, config.EPISODES, lg.logger_main,
                                   epsilon, memory=memories)
     print('\n')
-    epsilon -= init_epsilon / 200.0
     
     full_memory = True
 
     for d_t,memory in enumerate(memories):
         memory.clear_stmemory()
 
-        if len(memory.ltmemory) == MEMORY_SIZE[d_t]:
+        if len(memory.ltmemory) >= MIN_MEMORY_SIZE:
             #set_learning_phase(1) # tell keras backend that the model will be learning now
 
             trained = True
             ######## RETRAINING ########
             print('RETRAINING...')
             current_player.replay(memory.ltmemory,d_t)
+            current_player.evaluate(memory.ltmemory,d_t)
             print('')
             
-    if (iteration + 1) % 5 == 0:
+    if iteration != 0 and iteration % 3 == 0:
                 pickle.dump(memory, open(run_folder + "memory/decision_" + str(d_t) + "_memory" + str(iteration).zfill(4) + ".p", "wb"))
     
     if trained:
@@ -231,7 +240,7 @@ while 1:
                     tourney_players.append(current_player)
                     
         scores, _ = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
-                                                0.0)
+                                                0.0, None, best_player_version[0] == 0)
         print('\nSCORES')
         print(scores)
         print('\n\n')

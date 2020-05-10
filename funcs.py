@@ -14,11 +14,11 @@ from model import Residual_CNN
 from agent import Agent, User
 
 import config
-from config import PLAYER_COUNT, TEAM_SIZE
+from config import PLAYER_COUNT, TEAM_SIZE, MIN_MEMORY_SIZE
 
 from collections import defaultdict
 
-def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0):
+def playMatches(agents, EPISODES, logger, epsilon, memory = None, random_agent = False):
     total_time_avg = 0
     env = Game()
     scores = {"drawn": 0}
@@ -34,6 +34,7 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
     games_to_block = EPISODES - games_to_win
 
     for e in range(EPISODES):
+        last_game = e + 1
 
         logger.info('====================')
         logger.info('EPISODE %d OF %d', e+1, EPISODES)
@@ -74,10 +75,10 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
 
             d_t = state.decision_type
             #### Run the MCTS algo and return an action
-            action = players[state.playerTurn]['agent'].act(state, epsilon)
-
-            if action not in state.allowedActions:
-                print("error in funcs")
+            if random_agent and players[state.playerTurn]['name'] == 'best_player':
+                action = random.choice(state.allowedActions)
+            else:
+                action = players[state.playerTurn]['agent'].act(state, epsilon)
                 
             ### Do the action
             turn = state.playerTurn
@@ -139,7 +140,7 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, goes_first = 0
         # reduce size of epsilon every episode
         epsilon -= epsilon_step
 
-    print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
+    print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/last_game, int(turns/last_game)))
     return scores, memory   
 
 def version_tournament(agents, EPISODES, logger):
@@ -236,7 +237,7 @@ def fillMem(memory):
 
     print("Filling memory")
 
-    while len(memory[0].ltmemory) < memory[0].MEMORY_SIZE:
+    while len(memory[0].ltmemory) < MIN_MEMORY_SIZE:
         sys.stdout.flush()
         print ('.', end='')
         games += 1

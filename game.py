@@ -21,9 +21,9 @@ class Game:
             (DOM_COUNT * len(trains)), dtype=np.int)]
         #self.grid_shape = (4, DOM_COUNT)  # grid shape is 7xDOM_COUNT
         #self.input_shape = self.grid_shape = self.gameState.binary.shape  # input shape for the neural network is the shape of the binary state representation
-        self.input_shape = self.grid_shape = (len(self.gameState.binary), DOM_COUNT)
+        self.input_shape = self.grid_shape = self.gameState.binary.shape
         self.name = 'mexican_train'
-        self.state_size = len(self.gameState.binary)  # size of the entire game state # TODO: look into this to see if it could be effecting anything
+        #self.state_size = len(self.gameState.binary)  # size of the entire game state # TODO: look into this to see if it could be effecting anything
 
         self.action_size = [len(self.actionSpace[0])]  # size of the actionSpace
 
@@ -135,7 +135,7 @@ class Game:
 
 
 class GameState():
-    def __init__(self, hands, trains, queue, playerTurn, clues, passed = [False for player in range(PLAYER_COUNT)]):
+    def __init__(self, hands, trains, queue, playerTurn, clues, passed = [False for player in range(PLAYER_COUNT)], prev_binary = None):
         self.hands = hands
         self.trains = trains
         self.queue = queue
@@ -146,15 +146,18 @@ class GameState():
         self.value = self._getValue()  # the value is from the POV of the current player. So either 0 for the game continuing or -1 if the last player made a winning move
 
         self.playerTurn = playerTurn
-        self.binary = self._binary()  # this is a binary representation of the board state which is basically just the board atm
+        
+        self.allowedActions = self._allowedActions()  # generates the list of possible actions that are then given to the neural network
+        
+        self.binary = self._binary(prev_binary)  # this is a binary representation of the board state which is basically just the board atm
         self.id = self._convertStateToId()  # the state ID is all 4 board lists appended one after the other.
         # these previous two may have been converted poorly from connect4 and are causing issues now
 
-        self.allowedActions = self._allowedActions()  # generates the list of possible actions that are then given to the neural network
+        
 
         
         if len(self.allowedActions) != 0:
-            self.passed[self.playerTurn] = False
+            self.passed[self.playerTurn] = False    #TODO: add passed to binary rep
         
         self.decision_type = 0
 
@@ -163,9 +166,6 @@ class GameState():
 
         if self.queue:  # if there are dominoes to draw
             self.hands[self.playerTurn].append(self.queue.pop())  # randomly pop one from the boneyard and place it in the players hand
-
-            self.binary = self._binary()
-            self.id = self._convertStateToId()
 
             return True
 
@@ -300,7 +300,7 @@ class GameState():
 
 
 
-    def CloneAndRandomize(self, count):
+    def CloneAndRandomize(self, yield_count):
         if PLAYER_COUNT == 2 and not self.queue:
             yield (GameState(list(self.hands), [train.copy() for train in self.trains], [], self.playerTurn, [clue.copy() for clue in self.clues], list(self.passed)) for _ in range(count))
             
@@ -419,7 +419,7 @@ class GameState():
         
         #total_time = 0.0
         
-        for i in range(count):
+        for i in range(yield_count):
             clues = None
             count = 0
             while clues == None:
@@ -429,11 +429,11 @@ class GameState():
                 hidden_players_copy = list(hidden_players)
                 if count > 10:
                     np.random.shuffle(hidden_players_copy)
-                if count == 1000:
-                    print("randomization loop")
-                    exit()
-                
-                clues, unknown_copy = assignADomino(unknown_copy, hidden_players_copy, [clue.copy() for clue in self.clues])
+                if count >= 1000:
+                    clues, unknown_copy = assignADomino(unknown_copy, hidden_players_copy, [Clues() for _ in range(PLAYER_COUNT)])
+                else:
+                    clues, unknown_copy = assignADomino(unknown_copy, hidden_players_copy, [clue.copy() for clue in self.clues])
+                    
                 count += 1
             
             new_hands = [[] for _ in range(PLAYER_COUNT)]
@@ -447,7 +447,7 @@ class GameState():
             
             assert len(unknown_copy) == len(self.queue), "new_queue has length of {} when it should be {}.\nperm_unknown length: {}".format(len(unknown_copy), len(self.queue), len(perm_unknown))
 
-            yield GameState(new_hands,[train.copy() for train in self.trains], unknown_copy, self.playerTurn, [clue.copy() for clue in self.clues], list(self.passed))
+            yield GameState(new_hands,[train.copy() for train in self.trains], unknown_copy, self.playerTurn, clues, list(self.passed))
             
             for i in range(PLAYER_COUNT):
                 if i != self.playerTurn:
@@ -541,32 +541,45 @@ class GameState():
 
     # converts the state to a (2 * player_count + 3)xDOM_COUNT binary representation 
     # (current_player's hand, size of each other player's hand, each player's train, mexican train, marked train indices, available heads to play on)
-    def _binary(self):  # TODO signify multiples of a single head value being available
+    def _binary(self, prev_binary):  # TODO signify multiples of a single head value being available
         
         def get_player_rep(player, binary):
-            offset = 2 * player
+            #offset = (MAX_PIP + 3) * player
             for dom in self.hands[player]:
-                binary[offset][dom] = 1
+                low, high = INDEX2TUP[dom]
+                
+                binary[player * 2][high][low] = 1
             
+            if self.passed[player]:
+                binary[player * 2][MAX_PIP + 1].fill(1)
+                
             if self.playerTurn == player:
-                binary[offset + 1].fill(1)
+                binary[player * 2][MAX_PIP + 2].fill(1)
+
+                
                 
 
-        state = np.zeros((5 * PLAYER_COUNT + 4, DOM_COUNT), dtype=np.int)
+        state = np.zeros((PLAYER_COUNT * 2 + 1, MAX_PIP + 3, MAX_PIP + 1), dtype=np.int)
         
         for i in range(PLAYER_COUNT):
             get_player_rep(i, state)
 
-        offset = 2 * PLAYER_COUNT
+
         for i in range(PLAYER_COUNT): # each train
-            self.trains[i].get_binary(state, offset)
-            offset += 3
+            self.trains[i].get_binary(state, i * 2 + 1)
+            
             
         
-        self.trains[PLAYER_COUNT].get_binary(state, offset)
+        self.trains[PLAYER_COUNT].get_binary(state, PLAYER_COUNT * 2)
         
-        state[-1][len(self.queue)] = 1
-
+        
+        """try:
+            prev_binary.shape
+            state[1] = prev_binary[0]
+            state[2] = prev_binary[1]
+            state[3] = prev_binary[2]
+        except:
+            pass"""
 
         return state
 
@@ -726,7 +739,7 @@ class GameState():
                 if train.unfinished and not (i == self.playerTurn and double_played and chosen_train == 0):
                     train.mark()
 
-        newState = GameState(new_hands, new_trains, list(self.queue), next_player, new_clues, list(self.passed))  # create new state
+        newState = GameState(new_hands, new_trains, list(self.queue), next_player, new_clues, list(self.passed), self.binary)  # create new state
 
         return (newState, newState.value, newState.isEndGame)
 
@@ -1230,10 +1243,14 @@ class Train:
         self.unfinished = True
     
     def get_binary(self, binary, offset):
-        binary[offset][self.doms] = 1
-        binary[offset + 1][self.head] = 1
+        for dom in self.doms:
+                low, high = INDEX2TUP[dom]
+                
+                binary[offset][high][low] = 1
+                
+        binary[offset][MAX_PIP + 1][self.head] = 1
         if self.marked:
-            binary[offset + 2].fill(1)
+            binary[offset][MAX_PIP + 2].fill(1)
 
     
     def get_string(self):

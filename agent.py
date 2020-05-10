@@ -24,9 +24,8 @@ import time
 
 
 class User():
-    def __init__(self, name, state_size):
+    def __init__(self, name):
         self.name = name
-        self.state_size = state_size
 
     def act(self, state, tau):
         state.user_print()
@@ -36,10 +35,9 @@ class User():
 
 
 class Agent():
-    def __init__(self, name, state_size, action_size, mcts_simulations, cpuct, model):
+    def __init__(self, name, action_size, mcts_simulations, cpuct, model):
         self.name = name
 
-        self.state_size = state_size
         self.action_size = action_size
       
         self.cpuct = cpuct
@@ -92,12 +90,25 @@ class Agent():
             action = np.where(action_idx==1)[0][0]            
             
         return action
+    
+    def evaluate(self, ltmemory, d_t):
+        minibatch = random.sample(ltmemory, 10)
+        
+        predictions = [self.predict_value(row['state']) for row in minibatch]
+        targets = [row['value'] for row in minibatch]
+        
+        for i, pred in enumerate(predictions):
+            print("Pred: {}".format(pred))
+            print("True: {}".format(targets[i]))
+            print("Diff: {}".format([t - pred[j] for j, t in enumerate(targets[i])]))
+            
 
     def replay(self, ltmemory,d_t):
         lg.logger_mcts.info('******RETRAINING MODEL******')
-
+        
+            
         for i in range(config.TRAINING_LOOPS):
-            minibatch = random.sample(ltmemory, min(config.BATCH_SIZE, len(ltmemory)))
+            minibatch = random.sample(ltmemory, min(int(len(ltmemory) * .01), len(ltmemory)))
             
             training_states = np.array([self.model[d_t].convertToModelInput(row['state']) for row in minibatch])
             training_targets = {'value_head': np.array([row['value'] for row in minibatch])}

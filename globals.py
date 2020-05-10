@@ -6,18 +6,19 @@ global shuffled_queue
 shuffled_queue = []
 
 global HANDSIZE
+global MAX_PIP
 if PLAYER_COUNT < 4:
-    max_pip = 9
+    MAX_PIP = 9
     HANDSIZE = 8
 elif PLAYER_COUNT < 7:
-    max_pip = 12
+    MAX_PIP = 12
     HANDSIZE = 12
 else:
-    max_pip = 15
+    MAX_PIP = 15
     HANDSIZE = 10
 dubs = []
 tups = []
-for high in range(max_pip + 1):
+for high in range(MAX_PIP + 1):
     for low in range(high + 1):
         tups.append((low, high))
 
@@ -31,7 +32,7 @@ global unshuffled_queue
 unshuffled_queue = list(range(DOM_COUNT))
 
 values = []
-indices = [[] for i in range(max_pip + 1)]
+indices = [[] for i in range(MAX_PIP + 1)]
 for i, (low, high) in enumerate(INDEX2TUP):
     indices[low].append(i)
 

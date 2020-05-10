@@ -137,6 +137,7 @@ class Residual_CNN(Gen_Model):
 		return (x)
 
 	def conv_layer(self, x, filters, kernel_size):
+     
 
 		x = Conv2D(
 		filters = filters
@@ -233,7 +234,7 @@ class Residual_CNN(Gen_Model):
 		#ph = self.policy_head(x)
 
 		model = Model(inputs=[main_input], outputs=[vh])
-		model.compile(loss={'value_head': 'mean_squared_error'},
+		model.compile(loss={'value_head': 'squared_hinge'},
 			optimizer=SGD(lr=self.learning_rate, momentum = config.MOMENTUM),		
 			)
 
@@ -241,6 +242,6 @@ class Residual_CNN(Gen_Model):
 
 	def convertToModelInput(self, state):
 		inputToModel =  state.binary #np.append(state.binary, [(state.playerTurn + 1)/2] * self.input_dim[1] * self.input_dim[2])
-		#inputToModel = np.reshape(inputToModel, self.input_dim) 
-		inputToModel = np.expand_dims(inputToModel, 0)
+		inputToModel = np.reshape(inputToModel, self.input_dim) 
+		#inputToModel = np.expand_dims(inputToModel, 0)
 		return (inputToModel)
