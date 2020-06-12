@@ -137,36 +137,17 @@ print('\n')
 current_player = Agent('current_player', env.action_size, config.MCTS_SIMS, config.CPUCT, current_NN)
 best_player = Agent('best_player', env.action_size, config.MCTS_SIMS, config.CPUCT, best_NN)
 
+rollout_first = False
+
 if initialise.INITIAL_ITERATION != None:
     iteration = initialise.INITIAL_ITERATION
 else:
     iteration = 0
+    rollout_first = True
+    best_player = testing_agent(config.MCTS_SIMS, 'best_player')
 
-
-if play_vs_self:
-    reload(lg)
-    reload(config)
-    user_players = []
-    user_players.append(User('User1'))
-    user_players.append(User('User2'))
-    user_players.append(User('User3'))
-    user_players.append(User('User4'))
-
-    playMatches(user_players,1,lg.logger_main,500)
-
-if play_vs_agent:
-    players = []
-
-    # assumes that games have an even # of players
-    for i in range(PLAYER_COUNT, 2):
-        players.append(User('User' + str((i / 2) + 1)))
-        players.append(best_player)
-
-    playMatches(players,1,lg.logger_main,0)
-    exit(0)
-
-if len(memories[0].ltmemory) < MIN_MEMORY_SIZE:
-    memories = fillMem(memories)
+"""if len(memories[0].ltmemory) < MIN_MEMORY_SIZE:
+    memories = fillMem(memories)"""
 
 trained = False
 epsilon = init_epsilon = 0.70
@@ -248,6 +229,9 @@ while 1:
         # if the current player is significantly better than the best_player replace the best player
         # the replacement is made by just copying the weights of current_player's nn to best_player's nn
         if scores['current_player'] > scores['best_player'] * config.SCORING_THRESHOLD:
+            if rollout_first:
+                best_player = Agent('best_player', env.action_size, config.MCTS_SIMS, config.CPUCT, best_NN)
+                rollout_first = False
             for i in range(DECISION_TYPES):
                 best_player_version[i] = best_player_version[i] + 1
                 best_NN[i].model.set_weights(current_NN[i].model.get_weights())

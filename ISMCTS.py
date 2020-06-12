@@ -2,6 +2,7 @@ from math import sqrt, log
 import random
 from config import PLAYER_COUNT, TEAM_SIZE
 from timeit import default_timer as timer
+import numpy as np
 
 class Node:
     def __init__(self, move = None, parent = None, playerJustMoved = None):
@@ -116,8 +117,11 @@ def ISMCTS(rootstate, itermax, agent = None, verbose = False):
             values = state.value
         elif agent: # if an agent was passed to the function predict value instead of rolling out
             values = agent.predict_value(state)
-            """values = [0 for _ in range(PLAYER_COUNT)]
             
+            #values = [0 for _ in range(PLAYER_COUNT)]
+            #values[np.argmax(pred_values)] = 1
+            
+            """
             # values should be based on the perspective of the player that made the move creating this state
             # ex. In a two player game w/ players 0 and 1
             # if 0 makes a move that creates the current state

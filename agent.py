@@ -100,8 +100,20 @@ class Agent():
         for i, pred in enumerate(predictions):
             print("Pred: {}".format(pred))
             print("True: {}".format(targets[i]))
-            print("Diff: {}".format([t - pred[j] for j, t in enumerate(targets[i])]))
+            print("Same: {}".format(np.argmax(pred) == np.argmax(targets[i])))
             
+    def evaluate_accuracy(self, ltmemory, d_t):
+        minibatch = random.sample(ltmemory, 9000)
+        
+        predictions = [self.predict_value(row['state']) for row in minibatch]
+        targets = [row['value'] for row in minibatch]
+        
+        count = 0
+        for i, pred in enumerate(predictions):
+            if np.argmax(pred) == np.argmax(targets[i]):
+                count += 1
+        
+        print("Accuracy: {}".format(count / 9000))      
 
     def replay(self, ltmemory,d_t):
         lg.logger_mcts.info('******RETRAINING MODEL******')

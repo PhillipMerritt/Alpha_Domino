@@ -430,7 +430,7 @@ class GameState():
                 if count > 10:
                     np.random.shuffle(hidden_players_copy)
                 if count >= 1000:
-                    clues, unknown_copy = assignADomino(unknown_copy, hidden_players_copy, [Clues() for _ in range(PLAYER_COUNT)])
+                    clues, unknown_copy = assignADomino(unknown_copy, hidden_players_copy, [self.Clues() for _ in range(PLAYER_COUNT)])
                 else:
                     clues, unknown_copy = assignADomino(unknown_copy, hidden_players_copy, [clue.copy() for clue in self.clues])
                     
@@ -552,14 +552,11 @@ class GameState():
             
             if self.passed[player]:
                 binary[player * 2][MAX_PIP + 1].fill(1)
-                
-            if self.playerTurn == player:
-                binary[player * 2][MAX_PIP + 2].fill(1)
 
                 
                 
 
-        state = np.zeros((PLAYER_COUNT * 2 + 1, MAX_PIP + 3, MAX_PIP + 1), dtype=np.int)
+        state = np.zeros((PLAYER_COUNT * 3 + 1, MAX_PIP + 3, MAX_PIP + 1), dtype=np.int)
         
         for i in range(PLAYER_COUNT):
             get_player_rep(i, state)
@@ -572,7 +569,9 @@ class GameState():
         
         self.trains[PLAYER_COUNT].get_binary(state, PLAYER_COUNT * 2)
         
+        offset = PLAYER_COUNT * 2 + self.playerTurn
         
+        state[offset] = 1
         """try:
             prev_binary.shape
             state[1] = prev_binary[0]

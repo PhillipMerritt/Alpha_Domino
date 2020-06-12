@@ -10,15 +10,13 @@ import initialise
 import pickle
 from settings import run_folder, run_archive_folder
 from memory import Memory
+import sys
 
-pred_test = False
-rollout_test = False
-nn_test = False
-output_eval = True
-base_test = False
+arg = sys.argv[1]
+
 game = Game()
 
-if output_eval:
+if arg == "output_eval":
     memories = []
 
 
@@ -40,13 +38,13 @@ if output_eval:
     nn.model.set_weights(m_tmp.get_weights())
     trained_agent = Agent('trained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [nn])
     
-    trained_agent.evaluate(memories[0].ltmemory, 0)
+    trained_agent.evaluate_accuracy(memories[0].ltmemory, 0)
     
     quit()
                 
     
 
-if pred_test:
+if arg == "pred_test":
     nn = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + game.grid_shape, [1],\
                           config.HIDDEN_CNN_LAYERS, 0)
     player = Agent('player', game.state_size, config.MCTS_SIMS, config.CPUCT, [nn])
@@ -55,16 +53,16 @@ if pred_test:
     
     exit()
 
-if rollout_test:
-    rollout_agent = testing_agent(MCTS_SIMS, 'trained_agent', game.action_size)
-    random_agent = User('random_agent', game.state_size, game.action_size)
+if arg == "rollout_test":
+    rollout_agent = testing_agent(MCTS_SIMS, 'trained_agent')
+    random_agent = User('random_agent')
 
     if PLAYER_COUNT == 2:
         version_tournament([rollout_agent, random_agent], 1000, lg.logger_tourney)
     else:
         version_tournament([rollout_agent, random_agent, random_agent, random_agent], 400, lg.logger_tourney)
 
-if nn_test:
+if arg == "nn_test":
     nn = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, game.grid_shape, PLAYER_COUNT,
                             config.HIDDEN_CNN_LAYERS, 0)
     m_tmp = nn.read(game.name, initialise.INITIAL_RUN_NUMBER, initialise.INITIAL_MODEL_VERSION[0])
@@ -72,22 +70,25 @@ if nn_test:
     trained_agent = Agent('trained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [nn])
     random_agent = User('random_agent')
     
-    version_tournament([trained_agent, random_agent, random_agent, random_agent], 400, lg.logger_tourney)
+    version_tournament([trained_agent, random_agent, trained_agent, random_agent], 400, lg.logger_tourney)
     
     quit()
     
-if base_test:
+if arg == "base_test":
     base = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, game.grid_shape, PLAYER_COUNT,
                             config.HIDDEN_CNN_LAYERS, 0)
     nn = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, game.grid_shape, PLAYER_COUNT,
                             config.HIDDEN_CNN_LAYERS, 0)
     m_tmp = nn.read(game.name, initialise.INITIAL_RUN_NUMBER, initialise.INITIAL_MODEL_VERSION[0])
     nn.model.set_weights(m_tmp.get_weights())
-    trained_agent = Agent('trained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [nn])
+    #trained_agent = Agent('trained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [nn])
+    trained_agent = testing_agent(MCTS_SIMS, 'trained_agent')
+    
+    #trained_agent.evaluate()
     
     untrained_agent = Agent('untrained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [base])
     
-    version_tournament([trained_agent, untrained_agent, untrained_agent, untrained_agent], 200, lg.logger_tourney)
+    version_tournament([trained_agent, untrained_agent, trained_agent, untrained_agent], 400, lg.logger_tourney)
     
     quit()
     
@@ -95,7 +96,7 @@ if base_test:
 
 randomization_test = False
 
-if randomization_test:
+if arg == "randomization_test":
     count = 0
     for i in range(2000):
         
