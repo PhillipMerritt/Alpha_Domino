@@ -67,10 +67,12 @@ if arg == "nn_test":
                             config.HIDDEN_CNN_LAYERS, 0)
     m_tmp = nn.read(game.name, initialise.INITIAL_RUN_NUMBER, initialise.INITIAL_MODEL_VERSION[0])
     nn.model.set_weights(m_tmp.get_weights())
-    trained_agent = Agent('trained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [nn])
+    #trained_agent = Agent('trained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [nn])
+    trained_agent = testing_agent(MCTS_SIMS, 'trained_agent')
+    
     random_agent = User('random_agent')
     
-    version_tournament([trained_agent, random_agent, trained_agent, random_agent], 400, lg.logger_tourney)
+    version_tournament([trained_agent, random_agent, random_agent, random_agent], 100, lg.logger_tourney)
     
     quit()
     
@@ -79,16 +81,23 @@ if arg == "base_test":
                             config.HIDDEN_CNN_LAYERS, 0)
     nn = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, game.grid_shape, PLAYER_COUNT,
                             config.HIDDEN_CNN_LAYERS, 0)
+    
+    print("Loading model {}".format(initialise.INITIAL_MODEL_VERSION[0]))
+    
     m_tmp = nn.read(game.name, initialise.INITIAL_RUN_NUMBER, initialise.INITIAL_MODEL_VERSION[0])
     nn.model.set_weights(m_tmp.get_weights())
-    #trained_agent = Agent('trained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [nn])
-    trained_agent = testing_agent(MCTS_SIMS, 'trained_agent')
+    trained_agent = Agent('trained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [nn])
+    #trained_agent = testing_agent(MCTS_SIMS, 'trained_agent')
+    
+    rollout_agent = testing_agent(MCTS_SIMS, 'rollout_agent')
     
     #trained_agent.evaluate()
     
     untrained_agent = Agent('untrained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [base])
+    #untrained_agent = testing_agent(MCTS_SIMS, 'untrained_agent')
+    #version_tournament([trained_agent, untrained_agent, trained_agent, untrained_agent], 400, lg.logger_tourney)
     
-    version_tournament([trained_agent, untrained_agent, trained_agent, untrained_agent], 400, lg.logger_tourney)
+    version_tournament([rollout_agent, trained_agent, rollout_agent, trained_agent], 800, lg.logger_tourney)
     
     quit()
     

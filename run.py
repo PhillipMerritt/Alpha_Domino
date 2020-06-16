@@ -34,6 +34,7 @@ import initialise
 import pickle
 import config
 from config import PLAYER_COUNT, TEAM_SIZE, DECISION_TYPES, MEMORY_SIZE, ALL_VERSION_TOURNAMENT
+from fill_mem import fill_mem
 
 play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
@@ -147,7 +148,8 @@ else:
     best_player = testing_agent(config.MCTS_SIMS, 'best_player')
 
 """if len(memories[0].ltmemory) < MIN_MEMORY_SIZE:
-    memories = fillMem(memories)"""
+    fill_mem(memories)
+    pickle.dump(memories[0], open(run_folder + "memory/decision_" + str(0) + "_memory" + str(iteration).zfill(4) + ".p", "wb"))"""
 
 trained = False
 epsilon = init_epsilon = 0.70

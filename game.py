@@ -544,14 +544,21 @@ class GameState():
     def _binary(self, prev_binary):  # TODO signify multiples of a single head value being available
         
         def get_player_rep(player, binary):
-            #offset = (MAX_PIP + 3) * player
+            offset = player * 3
             for dom in self.hands[player]:
                 low, high = INDEX2TUP[dom]
                 
-                binary[player * 2][high][low] = 1
+                binary[offset][high][low] = 1
             
             if self.passed[player]:
-                binary[player * 2][MAX_PIP + 1].fill(1)
+                binary[offset][MAX_PIP + 1].fill(1)
+            
+            
+            self.trains[i].get_binary(binary, offset + 1)
+            
+            if self.playerTurn == player:
+                state[offset + 2] = 1
+            
 
                 
                 
@@ -561,17 +568,18 @@ class GameState():
         for i in range(PLAYER_COUNT):
             get_player_rep(i, state)
 
-
-        for i in range(PLAYER_COUNT): # each train
+        self.trains[PLAYER_COUNT].get_binary(state, -1)
+        
+        """for i in range(PLAYER_COUNT): # each train
             self.trains[i].get_binary(state, i * 2 + 1)
             
             
         
         self.trains[PLAYER_COUNT].get_binary(state, PLAYER_COUNT * 2)
         
-        offset = PLAYER_COUNT * 2 + self.playerTurn
+        offset = PLAYER_COUNT * 2 + self.playerTurn + 1
         
-        state[offset] = 1
+        state[offset] = 1"""
         """try:
             prev_binary.shape
             state[1] = prev_binary[0]

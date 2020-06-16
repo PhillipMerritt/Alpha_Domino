@@ -173,6 +173,8 @@ def version_tournament(agents, EPISODES, logger):
         
         done = 0
         players = {}
+        
+        random.shuffle(agents)
 
         for i,player in enumerate(agents):
             player.mcts = None

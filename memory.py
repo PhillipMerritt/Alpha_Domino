@@ -10,7 +10,7 @@ class Memory:
         self.ltmemory = deque(maxlen=MEMORY_SIZE)
         self.stmemory = deque(maxlen=MEMORY_SIZE)
     
-    def commit_stmemory(self, state, prev_player):
+    def commit_stmemory(self, state, prev_player = None):
         self.stmemory.append({
             'Decision Type': state.decision_type
             , 'prev_player': prev_player
