@@ -20,12 +20,11 @@ from keras import backend as K
 from settings import run_folder, run_archive_folder
 
 class Gen_Model():
-	def __init__(self, reg_const, learning_rate, input_dim, output_dim, decision_type):
+	def __init__(self, reg_const, learning_rate, input_dim, output_dim):
 		self.reg_const = reg_const
 		self.learning_rate = learning_rate
 		self.input_dim = input_dim
 		self.output_dim = output_dim
-		self.decision_type = decision_type
 
 	def predict(self, x, batch_size_arg=None):
 		return self.model.predict(x,batch_size=batch_size_arg)
@@ -34,10 +33,10 @@ class Gen_Model():
 		return self.model.fit(states, targets, epochs=epochs, verbose=verbose, validation_split = validation_split, batch_size = batch_size)
 
 	def write(self, game, version):
-		self.model.save(run_folder + 'models/version' + "{0:0>4}".format(version) + '-' + str(self.decision_type) + '.h5')
+		self.model.save(run_folder + 'models/version' + "{0:0>4}".format(version) + '.h5')
 
 	def read(self, game, run_number, version):
-		return load_model( run_archive_folder + game + '/run' + str(run_number).zfill(4) + "/models/version" + "{0:0>4}".format(version) + '-' + str(self.decision_type) + '.h5', custom_objects={'softmax_cross_entropy_with_logits': softmax_cross_entropy_with_logits})
+		return load_model( run_archive_folder + game + '/run' + str(run_number).zfill(4) + "/models/version" + "{0:0>4}".format(version) + '.h5')
 
 	def printWeightAverages(self):
 		layers = self.model.layers
@@ -108,8 +107,8 @@ class Gen_Model():
 
 
 class Residual_CNN(Gen_Model):
-	def __init__(self, reg_const, learning_rate, input_dim,  output_dim, hidden_layers, decision_type):
-		Gen_Model.__init__(self, reg_const, learning_rate, input_dim, output_dim, decision_type)
+	def __init__(self, reg_const, learning_rate, input_dim,  output_dim, hidden_layers):
+		Gen_Model.__init__(self, reg_const, learning_rate, input_dim, output_dim)
 		self.hidden_layers = hidden_layers
 		self.num_layers = len(hidden_layers)
 		self.model = self._build_model()

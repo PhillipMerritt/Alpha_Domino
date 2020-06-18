@@ -93,9 +93,9 @@ else:
     shape = env.grid_shape
 
 if TEAM_SIZE > 1:
-    current_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, PLAYER_COUNT / TEAM_SIZE,
+    current_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, int(PLAYER_COUNT / TEAM_SIZE),
                         config.HIDDEN_CNN_LAYERS)
-    best_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, PLAYER_COUNT / TEAM_SIZE,
+    best_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, int(PLAYER_COUNT / TEAM_SIZE),
                                 config.HIDDEN_CNN_LAYERS)
 else:
     current_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, PLAYER_COUNT,
@@ -124,8 +124,8 @@ print('\n')
 
 ######## CREATE THE PLAYERS ########
 
-current_player = Agent('current_player', env.action_size, config.MCTS_SIMS, config.CPUCT, current_NN)
-best_player = Agent('best_player', env.action_size, config.MCTS_SIMS, config.CPUCT, best_NN)
+current_player = Agent('current_player', config.MCTS_SIMS, config.CPUCT, current_NN)
+best_player = Agent('best_player', config.MCTS_SIMS, config.CPUCT, best_NN)
 
 rollout_first = False
 

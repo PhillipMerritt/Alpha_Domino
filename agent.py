@@ -35,10 +35,8 @@ class User():
 
 
 class Agent():
-    def __init__(self, name, action_size, mcts_simulations, cpuct, model):
+    def __init__(self, name, mcts_simulations, cpuct, model):
         self.name = name
-
-        self.action_size = action_size
       
         self.cpuct = cpuct
 
@@ -74,7 +72,7 @@ class Agent():
             actions = [c.move for c in child_nodes if c.visits == max_vists]
             action = random.choice(actions)
         else:
-            pi = np.zeros(self.action_size[0], dtype=np.integer)
+            pi = np.zeros(28, dtype=np.integer)
             for child in child_nodes:
                 pi[child.move] = child.visits
             
