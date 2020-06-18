@@ -78,12 +78,14 @@ if initialise.INITIAL_RUN_NUMBER != None:
 if initialise.INITIAL_MEMORY_VERSION == None:
     memories = Memory(MEMORY_SIZE)
 else:
-    print('LOADING MEMORY VERSION ' + str(MEM_VERSION) + '...')
+    print('LOADING MEMORY VERSION ' + str(initialise.INITIAL_MEMORY_VERSION) + '...')
     memories = pickle.load(open(
-        run_archive_folder + env.name + '/run' + str(initialise.INITIAL_RUN_NUMBER).zfill(4) + "/memory/decision_" + str(d_t) + "_memory" + str(MEM_VERSION).zfill(4) + ".p", "rb"))
+        run_archive_folder + env.name + '/run' + str(initialise.INITIAL_RUN_NUMBER).zfill(4) + "/memory/memory" + str(initialise.INITIAL_MEMORY_VERSION).zfill(4) + ".p", "rb"))
 
     if memories.MEMORY_SIZE < MEMORY_SIZE:
         memories.extension(MEMORY_SIZE)
+
+fill_mem(memories)
 ######## LOAD MODEL IF NECESSARY ########
 
 # create an untrained neural network objects from the config file
@@ -108,7 +110,7 @@ best_player_version = 0
 if initialise.INITIAL_MODEL_VERSION != None:
     best_player_version = initialise.INITIAL_MODEL_VERSION
     print('LOADING MODEL VERSION ' + str(initialise.INITIAL_MODEL_VERSION) + '...')
-    m_tmp = best_NN.read(env.name, initialise.INITIAL_RUN_NUMBER, version)
+    m_tmp = best_NN.read(env.name, initialise.INITIAL_RUN_NUMBER, initialise.INITIAL_MODEL_VERSION)
     current_NN.model.set_weights(m_tmp.get_weights())
     best_NN.model.set_weights(m_tmp.get_weights())
 # otherwise just ensure the weights on the two players are the same
