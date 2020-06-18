@@ -1,21 +1,27 @@
 import numpy as np
 from collections import defaultdict
-from config import PLAYER_COUNT
+from config import PLAYER_COUNT, TEAM_SIZE
 
 global shuffled_queue
 shuffled_queue = []
 
 global HANDSIZE
 global MAX_PIP
-if PLAYER_COUNT < 4:
-    MAX_PIP = 9
-    HANDSIZE = 8
-elif PLAYER_COUNT < 7:
-    MAX_PIP = 12
-    HANDSIZE = 12
+
+if TEAM_SIZE > 1:
+    MAX_PIP = 6
+    HANDSIZE = 7
 else:
-    MAX_PIP = 15
-    HANDSIZE = 10
+    if PLAYER_COUNT < 4:
+        MAX_PIP = 9
+        HANDSIZE = 8
+    elif PLAYER_COUNT < 7:
+        MAX_PIP = 12
+        HANDSIZE = 12
+    else:
+        MAX_PIP = 15
+        HANDSIZE = 10
+    
 dubs = []
 tups = []
 for high in range(MAX_PIP + 1):

@@ -11,7 +11,7 @@ from game import GameState
 from loss import softmax_cross_entropy_with_logits
 
 import config
-from config import DECISION_TYPES, TEAM_SIZE, PLAYER_COUNT
+from config import TEAM_SIZE, PLAYER_COUNT
 import loggers as lg
 import time
 
@@ -44,14 +44,9 @@ class Agent():
 
         self.MCTSsimulations = mcts_simulations
         self.model = model
-        self.decision_types = len(model)
 
         self.train_overall_loss = []
         self.val_overall_loss = []
-        
-        for i in range(config.DECISION_TYPES):
-            self.train_overall_loss.append([])
-            self.val_overall_loss.append([])
 
 
     def act(self, state, epsilon):
@@ -64,11 +59,10 @@ class Agent():
 
     # Gets a value prediction for the given state and returns it
     def predict_value(self, state):
-        decision_type = state.decision_type
         # predict the leaf
-        inputToModel = np.array([self.model[decision_type].convertToModelInput(state)])
+        inputToModel = np.array([self.model.convertToModelInput(state)])
 
-        preds = self.model[decision_type].predict(inputToModel)
+        preds = self.model.predict(inputToModel)
 
         value = preds[0]
 
@@ -91,7 +85,7 @@ class Agent():
             
         return action
     
-    def evaluate(self, ltmemory, d_t):
+    def evaluate(self, ltmemory):
         minibatch = random.sample(ltmemory, 10)
         #minibatch = ltmemory
         
@@ -102,7 +96,7 @@ class Agent():
             winner = np.argmax(pred)
             print("Pred: {}, Winner: {}, Same: {}".format(pred, winner, winner == np.argmax(targets[i])))
             
-    def evaluate_accuracy(self, ltmemory, d_t):
+    def evaluate_accuracy(self, ltmemory):
         #minibatch = random.sample(ltmemory, 9000)
         minibatch = ltmemory
         
@@ -116,24 +110,24 @@ class Agent():
         
         print("Accuracy: {}".format(count / len(minibatch)))      
 
-    def replay(self, ltmemory,d_t):
+    def replay(self, ltmemory):
         lg.logger_mcts.info('******RETRAINING MODEL******')
         
             
         for i in range(config.TRAINING_LOOPS):
             minibatch = random.sample(ltmemory, min(int(len(ltmemory) * .01), len(ltmemory)))
             
-            training_states = np.array([self.model[d_t].convertToModelInput(row['state']) for row in minibatch])
+            training_states = np.array([self.model.convertToModelInput(row['state']) for row in minibatch])
             training_targets = {'value_head': np.array([row['value'] for row in minibatch])}
 
-            fit = self.model[d_t].fit(training_states, training_targets, epochs=config.EPOCHS, verbose=1,\
+            fit = self.model.fit(training_states, training_targets, epochs=config.EPOCHS, verbose=1,\
                                     validation_split=0, batch_size=32)
-            lg.logger_mcts.info('D_T {0}: NEW LOSS {1}'.format(d_t, fit.history))
+            lg.logger_mcts.info('NEW LOSS {}'.format(fit.history))
             
             if i == 0:
                 init_loss = fit.history['loss'][0]
             
-            self.train_overall_loss[d_t].append(round(fit.history['loss'][config.EPOCHS - 1], 4))
+            self.train_overall_loss.append(round(fit.history['loss'][config.EPOCHS - 1], 4))
             #self.train_value_loss[d_t].append(round(fit.history['value_head_loss'][config.EPOCHS - 1], 4))
 
         #plt.plot(self.train_overall_loss[d_t], 'k')
@@ -147,9 +141,9 @@ class Agent():
         time.sleep(.25)
 
         print('\n')
-        self.model[d_t].printWeightAverages()
+        self.model.printWeightAverages()
 
-        print("D_T {0}, Max = {1}, Min = {2}, latest = {3}".format(d_t, max(self.train_overall_loss[d_t]), min(self.train_overall_loss[d_t]), self.train_overall_loss[d_t][-1]))
+        print("Max = {0}, Min = {1}, latest = {2}".format(max(self.train_overall_loss), min(self.train_overall_loss), self.train_overall_loss[-1]))
         print("Loss reduction: {}".format(init_loss - fit.history['loss'][0]))
 
 class testing_agent(Agent):

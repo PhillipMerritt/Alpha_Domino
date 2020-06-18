@@ -11,8 +11,18 @@ import pickle
 from settings import run_folder, run_archive_folder
 from memory import Memory
 import sys
+import numpy as np
 
-arg = sys.argv[1]
+"""seed = 808 # np.random.random_integers(0,5000)
+#print(seed)
+np.random.seed(seed=seed)
+
+py_seed = 967 #random.randint(0,1000)
+#print("Python seed: {0}".format(py_seed))
+random.seed(py_seed)"""
+
+#arg = sys.argv[1]
+arg = 'rollout_test'
 
 game = Game()
 
@@ -53,6 +63,18 @@ if arg == "pred_test":
     
     exit()
 
+import sys, os
+import logging
+logging.basicConfig(
+    level=logging.DEBUG,  # DEBUG here
+    format='%(asctime)s %(levelname)s %(message)s',
+    filename='svn2ftp.debug.log',
+    filemode='a'
+)
+console = logging.StreamHandler()
+console.setLevel(logging.ERROR) # ERROR here
+logging.getLogger('').addHandler(console)
+
 if arg == "rollout_test":
     rollout_agent = testing_agent(MCTS_SIMS, 'trained_agent')
     random_agent = User('random_agent')
@@ -60,7 +82,7 @@ if arg == "rollout_test":
     if PLAYER_COUNT == 2:
         version_tournament([rollout_agent, random_agent], 1000, lg.logger_tourney)
     else:
-        version_tournament([rollout_agent, random_agent, random_agent, random_agent], 400, lg.logger_tourney)
+        version_tournament([rollout_agent, random_agent, rollout_agent, random_agent], 100, lg.logger_tourney)
 
 if arg == "nn_test":
     nn = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, game.grid_shape, PLAYER_COUNT,
@@ -93,9 +115,9 @@ if arg == "base_test":
     
     #trained_agent.evaluate()
     
-    untrained_agent = Agent('untrained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [base])
+    #untrained_agent = Agent('untrained_agent', game.action_size, config.MCTS_SIMS, config.CPUCT, [base])
     #untrained_agent = testing_agent(MCTS_SIMS, 'untrained_agent')
-    #version_tournament([trained_agent, untrained_agent, trained_agent, untrained_agent], 400, lg.logger_tourney)
+    #version_tournament([trained_agent, untrained_agent, untrained_agent, untrained_agent], 400, lg.logger_tourney)
     
     version_tournament([rollout_agent, trained_agent, rollout_agent, trained_agent], 800, lg.logger_tourney)
     
@@ -107,7 +129,7 @@ randomization_test = False
 
 if arg == "randomization_test":
     count = 0
-    for i in range(2000):
+    for i in range(100):
         
         game.reset()
         state = game.gameState
@@ -121,4 +143,4 @@ if arg == "randomization_test":
             else:
                 state, _, _ = state.takeAction(-1)
         
-    print(count / 2000)
+    print(count / 100)

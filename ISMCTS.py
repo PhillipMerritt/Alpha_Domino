@@ -1,6 +1,6 @@
 from math import sqrt, log
 import random
-from config import PLAYER_COUNT, TEAM_SIZE
+from config import PLAYER_COUNT, TEAM_SIZE, ROLLOUT_RATIO
 from timeit import default_timer as timer
 import numpy as np
 
@@ -50,7 +50,10 @@ class Node:
         """
         self.visits += 1
         if self.playerJustMoved is not None:
-            self.wins += value[self.playerJustMoved]
+            if TEAM_SIZE > 1:
+                self.wins += value[self.playerJustMoved % TEAM_SIZE]
+            else:
+                self.wins += value[self.playerJustMoved]
 
     def __repr__(self):
         return "[M:{} W/V/A: {:4}/{:4}/{:4}]".format(self.move, self.wins, self.visits, self.avails)
@@ -116,28 +119,19 @@ def ISMCTS(rootstate, itermax, agent = None, verbose = False):
         if state.isEndGame: # if the state is terminal use it's value
             values = state.value
         elif agent: # if an agent was passed to the function predict value instead of rolling out
-            values = agent.predict_value(state)
+            nn_values = agent.predict_value(state)
             
-            #values = [0 for _ in range(PLAYER_COUNT)]
-            #values[np.argmax(pred_values)] = 1
+            while not state.isEndGame: # while state is non-terminal
+                if state.allowedActions == []:
+                    state, _, _ = state.takeAction(-1)
+                elif len(state.allowedActions) == 1:
+                    state, _, _ = state.takeAction(state.allowedActions[0])
+                else:
+                    state, _, _ = state.takeAction(random.choice(state.allowedActions))
             
-            """
-            # values should be based on the perspective of the player that made the move creating this state
-            # ex. In a two player game w/ players 0 and 1
-            # if 0 makes a move that creates the current state
-            # where 0 is the winner the values would be [1, -1]
-            if TEAM_SIZE == 1:
-                for i in range(PLAYER_COUNT):
-                    if i == player:
-                        values[i] = value
-                    else:
-                        values[i] = -value
-            else:
-                for i in range(PLAYER_COUNT):
-                    if i % TEAM_SIZE == player % TEAM_SIZE: # if player i was on the same team as the player who made the last move
-                        values[i] = value
-                    else:
-                        values[i] = -value"""
+            rollout_values = np.array(state.value)
+            
+            values = (1 - ROLLOUT_RATIO) * nn_values + ROLLOUT_RATIO * rollout_values
         else:
             while not state.isEndGame: # while state is non-terminal
                 if state.allowedActions == []:

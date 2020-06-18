@@ -73,7 +73,6 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, random_agent =
             if len(state.allowedActions) < 2:
                 print("funcs loop, no choices")
 
-            d_t = state.decision_type
             #### Run the MCTS algo and return an action
             if random_agent and players[state.playerTurn]['name'] == 'best_player':
                 action = random.choice(state.allowedActions)
@@ -88,31 +87,27 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, random_agent =
                 state, value, done, _ = env.step(action, logger) # the value is [1,-1] if team/player 0 won or the opposite if team/player 1 won otherwise it's [0,0]
             
             # store state and the player who created that state in short term memory
-            if memory != None and memory[d_t] != None:
-                memory[d_t].commit_stmemory(state, turn)
+            if memory != None and memory != None:
+                memory.commit_stmemory(state, turn)
 
             if done:
                 if memory:
                     #### If the game is finished, assign the values to the history of moves from the game
-                    for d_t in range(config.DECISION_TYPES):
-                        if memory[d_t] != None:
-                            for move in memory[d_t].stmemory:
-                                """if TEAM_SIZE > 1:
-                                    if move['prev_player'] % TEAM_SIZE == winning_team:
-                                        move['value'] = 1
-                                    else:
-                                        move['value'] = -1
-                                else:
-                                    if move['prev_player'] == winning_team:
-                                        move['value'] = 1
-                                    else:
-                                        move['value'] = -1"""
-                                        
-                                move['value'] = value
+                    for move in memory.stmemory:
+                        """if TEAM_SIZE > 1:
+                            if move['prev_player'] % TEAM_SIZE == winning_team:
+                                move['value'] = 1
+                            else:
+                                move['value'] = -1
+                        else:
+                            if move['prev_player'] == winning_team:
+                                move['value'] = 1
+                            else:
+                                move['value'] = -1"""
+                                
+                        move['value'] = value
 
-                    for d_t in range(config.DECISION_TYPES):
-                        if memory[d_t] != None:
-                            memory[d_t].commit_ltmemory()
+                    memory.commit_ltmemory()
                 else:
                     if value[0] == 0:
                         scores['drawn'] = scores['drawn'] + 1
@@ -173,8 +168,6 @@ def version_tournament(agents, EPISODES, logger):
         
         done = 0
         players = {}
-        
-        random.shuffle(agents)
 
         for i,player in enumerate(agents):
             player.mcts = None
@@ -213,8 +206,6 @@ def version_tournament(agents, EPISODES, logger):
 
             if done == 1:
                 winning_team = int(np.argmax(value))
-                if TEAM_SIZE > 1:
-                    winning_team = winning_team % TEAM_SIZE
 
                 scores[players[winning_team]['name']] += 1
                 print(scores)
@@ -230,68 +221,6 @@ def version_tournament(agents, EPISODES, logger):
     print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
     return scores
 
-# only useful if the rollout agent is faster
-def fillMem(memory):
-    total_time_avg = 0
-    env = Game()
-    #sp_scores = {'sp':0, "drawn": 0, 'nsp':0}
-    games = 0
-
-    print("Filling memory")
-
-    while len(memory[0].ltmemory) < MIN_MEMORY_SIZE:
-        sys.stdout.flush()
-        print ('.', end='')
-        games += 1
-
-        state = env.reset()
-            
-        #print("Starting hands: {0}".format(state.hands))
-
-        if len(state.allowedActions) == 1:  # if things like bidding at the beginning only give one action go ahead and  automate those w/ env.step
-                state, _, _, _ = env.step(state.allowedActions[0])
-        
-        done = 0
-
-
-
-        start_game = timer()
-
-        while not done:
-            #print("turn: {0}".format(turns))
-            d_t = state.decision_type
-            turn = state.playerTurn
-            #### Run the MCTS algo and return an action
-
-            action = random.choice(state.allowedActions)
-            
-                # store decision type from state
-            if memory != None and memory[d_t] != None:
-                ####Commit the move to memory
-                memory[d_t].commit_stmemory(state, 0)
-
-            state, value, done, _ = env.step(action) # the value is [1,-1] if team/player 0 won or the opposite if team/player 1 won otherwise it's [0,0]
-            
-            #env.gameState.render(logger) # moved logger to step so that skipped turns (1 or less action) still get logged
-
-            if done == 1:
-                if memory != None:
-                    #### If the game is finished, assign the values to the history of moves from the game
-                    for d_t in range(config.DECISION_TYPES):
-                        if memory[d_t] != None:
-                            for move in memory[d_t].stmemory:
-                                #if move['playerTurn'] % int(PLAYER_COUNT/TEAM_SIZE) == winning_team:
-                                move['value'] = value
-
-                    for i in range(config.DECISION_TYPES):
-                        if memory[i] != None:
-                            memory[i].commit_ltmemory()
-
-
-        end_game = timer()
-
-    print("Avg game time: {0}".format(total_time_avg/games))
-    return memory
 
 # old and untested
 def playMatchesBetweenVersions(env, run_version_1,run_version_2, player1version, player2version, EPISODES, logger, turns_until_tau0, goes_first = 0):
