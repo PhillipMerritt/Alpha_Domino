@@ -9,7 +9,7 @@ from agent import Agent, User
 import config
 from config import PLAYER_COUNT, TEAM_SIZE, MIN_MEMORY_SIZE
 from collections import defaultdict
-from tqdm import tqdm
+from tqdm import tnrange
 
 def playMatches(agents, EPISODES, logger, epsilon, memory = None, random_agent = False, evaluation = False):
     total_time_avg = 0
@@ -27,7 +27,7 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, random_agent =
     games_to_block = EPISODES - games_to_win
 
     sys.stdout.flush()
-    for e in tqdm(list(range(EPISODES)), smoothing=0):
+    for e in tnrange(EPISODES, smoothing=0):
         last_game = e + 1
 
         logger.info('====================')
