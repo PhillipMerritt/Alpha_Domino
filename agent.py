@@ -2,21 +2,19 @@
 from timeit import default_timer as timer#timer 
 from collections import defaultdict
 
-
 import numpy as np
 import random
 
 from ISMCTS import ISMCTS as mc
 from game import GameState
-from loss import softmax_cross_entropy_with_logits
-from tensorflow.keras.losses import SquaredHinge
+#from loss import softmax_cross_entropy_with_logits
+#from tensorflow.keras.losses import SquaredHinge
 
 import config
 from config import TEAM_SIZE, PLAYER_COUNT
 import loggers as lg
-import time
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from IPython import display
 import pylab as pl
 
@@ -109,8 +107,7 @@ class Agent():
         print("Evaluating model on {} memories from unseen games.".format(len(minibatch)))
         print("Accuracy: {}".format(count / len(minibatch)))
         
-        h = SquaredHinge()
-        print("Squared Hinge Loss: {}".format(h(targets, predictions).numpy()))    
+        #print("Squared Hinge Loss: {}".format(SquaredHinge(targets, predictions))    
 
     def replay(self, ltmemory):
         lg.logger_mcts.info('******RETRAINING MODEL******')

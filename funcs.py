@@ -4,7 +4,6 @@ import random
 import loggers as lg
 import sys
 from game import Game, GameState
-from model import Residual_CNN
 from agent import Agent, User
 import config
 from config import PLAYER_COUNT, TEAM_SIZE, MIN_MEMORY_SIZE
@@ -26,8 +25,8 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, random_agent =
     games_to_win = (config.SCORING_THRESHOLD * EPISODES) / (1 + config.SCORING_THRESHOLD)
     games_to_block = EPISODES - games_to_win
 
-    sys.stdout.flush()
-    for e in tnrange(EPISODES, smoothing=0):
+    #sys.stdout.flush()
+    for e in range(EPISODES):
         last_game = e + 1
 
         logger.info('====================')
@@ -35,7 +34,11 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, random_agent =
         logger.info('====================')
 
         
-        #print (str(e+1) + ' ', end='')
+        if (e+1) % 5 == 0:
+            if evaluation:
+                print('ev' + str(e+1) + ' ', end='')
+            else:
+                print('sp' + str(e+1) + ' ', end='')
 
         state = env.reset()
         
@@ -120,7 +123,7 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, random_agent =
         # reduce size of epsilon every episode
         epsilon -= epsilon_step
 
-    print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/last_game, int(turns/last_game)))
+    #print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/last_game, int(turns/last_game)))
     return scores, memory   
 
 def version_tournament(agents, EPISODES, logger):
@@ -205,31 +208,3 @@ def version_tournament(agents, EPISODES, logger):
     
     print("Avg game time: {0}, Avg # of turns: {1}".format(total_time_avg/EPISODES, int(turns/EPISODES)))
     return scores
-
-
-# old and untested
-def playMatchesBetweenVersions(env, run_version_1,run_version_2, player1version, player2version, EPISODES, logger, turns_until_tau0, goes_first = 0):
-    
-    if player1version == -1:
-        player1 = User('player1', env.state_size, env.action_size)
-    else:
-        player1_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,)+ env.input_shape,   env.action_size, config.HIDDEN_CNN_LAYERS)
-
-        if player1version > 0:
-            player1_network = player1_NN.read(env.name, run_version_1, player1version)
-            player1_NN.model.set_weights(player1_network.get_weights())   
-        player1 = Agent('player1', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, player1_NN)
-
-    if player2version == -1:
-        player2 = User('player2', env.state_size, env.action_size)
-    else:
-        player2_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.input_shape,   env.action_size, config.HIDDEN_CNN_LAYERS)
-        
-        if player2version > 0:
-            player2_network = player2_NN.read(env.name, run_version_2, player2version)
-            player2_NN.model.set_weights(player2_network.get_weights())
-        player2 = Agent('player2', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, player2_NN)
-
-    scores, memory, points, sp_scores = playMatches(player1, player2, EPISODES, logger, turns_until_tau0, None, goes_first)
-
-    return (scores, memory, points, sp_scores)

@@ -5,6 +5,7 @@ from config import MCTS_SIMS
 from timeit import default_timer as time
 from ISMCTS import ISMCTS as mc
 import pickle
+import random
 class testing_agent():
     def __init__(self, mcts_simulations, name):
         self.name = name
@@ -33,7 +34,7 @@ def worker(count, agent):
             
             (state, value, done, _) = env.step(action)
         
-        for s in states:
+        for s in random.sample(states, 5):
             memories.append((s, value))
     
     return memories
@@ -62,6 +63,6 @@ def fill_mem(memories):
     total = time() - start
     print("Total time: {}, time per memory: {}".format(total, total/len(memories.ltmemory)))
     #print(59*total/len(memories.ltmemory))
-    #pickle.dump(memories, open("bo3texas42_100k.p", "wb"))
+    pickle.dump(memories, open("bo3texas42_50k.p", "wb"))
     
     
