@@ -1,23 +1,30 @@
 import numpy as np
 from collections import defaultdict
-from config import PLAYER_COUNT
+from config import PLAYER_COUNT, TEAM_SIZE
 
 global shuffled_queue
 shuffled_queue = []
 
 global HANDSIZE
-if PLAYER_COUNT < 4:
-    max_pip = 9
-    HANDSIZE = 8
-elif PLAYER_COUNT < 7:
-    max_pip = 12
-    HANDSIZE = 12
+global MAX_PIP
+
+if TEAM_SIZE > 1:
+    MAX_PIP = 6
+    HANDSIZE = 7
 else:
-    max_pip = 15
-    HANDSIZE = 10
+    if PLAYER_COUNT < 4:
+        MAX_PIP = 9
+        HANDSIZE = 8
+    elif PLAYER_COUNT < 7:
+        MAX_PIP = 12
+        HANDSIZE = 12
+    else:
+        MAX_PIP = 15
+        HANDSIZE = 10
+    
 dubs = []
 tups = []
-for high in range(max_pip + 1):
+for high in range(MAX_PIP + 1):
     for low in range(high + 1):
         tups.append((low, high))
 
@@ -31,7 +38,7 @@ global unshuffled_queue
 unshuffled_queue = list(range(DOM_COUNT))
 
 values = []
-indices = [[] for i in range(max_pip + 1)]
+indices = [[] for i in range(MAX_PIP + 1)]
 for i, (low, high) in enumerate(INDEX2TUP):
     indices[low].append(i)
 

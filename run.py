@@ -3,6 +3,7 @@
 #%load_ext autoreload
 #%autoreload 2
 import tensorflow as tf
+tf.get_logger().setLevel('INFO')
 import settings
 import os
 import random
@@ -32,7 +33,8 @@ from settings import run_folder, run_archive_folder
 import initialise
 import pickle
 import config
-from config import PLAYER_COUNT, TEAM_SIZE, DECISION_TYPES, MEMORY_SIZE, ALL_VERSION_TOURNAMENT
+from config import PLAYER_COUNT, TEAM_SIZE, MEMORY_SIZE, ALL_VERSION_TOURNAMENT
+from fill_mem import fill_mem
 
 play_vs_self = False    # set this to true to take control of all 4 players
 play_vs_agent = False   # set this to true to play against a trained
@@ -71,96 +73,89 @@ if initialise.INITIAL_RUN_NUMBER != None:
 # the replay function retrains based on memory and there is no
 # state to get the decision type from so I'm going to make separate
 # memories for now
-memories = []
 
-
-if initialise.INITIAL_MEMORY_VERSION == [None] * DECISION_TYPES:
-    for i in range(DECISION_TYPES):
-        memories.append(Memory(MEMORY_SIZE[i]))
+test_memories = Memory(int(MEMORY_SIZE/10))
+if initialise.INITIAL_MEMORY_VERSION == None:
+    memories = Memory(MEMORY_SIZE)
 else:
-    for d_t, MEM_VERSION in enumerate(initialise.INITIAL_MEMORY_VERSION):
-        print('LOADING MEMORY VERSION ' + str(MEM_VERSION) + '...')
-        memories.append(pickle.load(open(
-            run_archive_folder + env.name + '/run' + str(initialise.INITIAL_RUN_NUMBER).zfill(4) + "/memory/decision_" + str(d_t) + "_memory" + str(MEM_VERSION).zfill(4) + ".p", "rb")))
+    print('LOADING MEMORY VERSION ' + str(initialise.INITIAL_MEMORY_VERSION) + '...')
+    memories = pickle.load(open(
+        run_archive_folder + env.name + '/run' + str(initialise.INITIAL_RUN_NUMBER).zfill(4) + "/memory/memory" + str(initialise.INITIAL_MEMORY_VERSION).zfill(4) + ".p", "rb"))
+
+    if memories.MEMORY_SIZE < MEMORY_SIZE:
+        memories.extension(MEMORY_SIZE)
+    elif memories.MEMORY_SIZE > MEMORY_SIZE:
+        memories.extension(MEMORY_SIZE)
 
 ######## LOAD MODEL IF NECESSARY ########
 
-current_NN = []
-best_NN = []
-
 # create an untrained neural network objects from the config file
-for i in range(DECISION_TYPES):
-    current_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
-                          config.HIDDEN_CNN_LAYERS, i))
-    best_NN.append(Residual_CNN(config.REG_CONST, config.LEARNING_RATE, (1,) + env.grid_shape, env.action_size[i],
-                                   config.HIDDEN_CNN_LAYERS, i))
+if len(env.grid_shape) == 2:
+    shape = (1,) + env.grid_shape
+else:
+    shape = env.grid_shape
 
+if TEAM_SIZE > 1:
+    current_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, int(PLAYER_COUNT / TEAM_SIZE),
+                        config.HIDDEN_CNN_LAYERS)
+    best_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, int(PLAYER_COUNT / TEAM_SIZE),
+                                config.HIDDEN_CNN_LAYERS)
+    opponent_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, int(PLAYER_COUNT / TEAM_SIZE),
+                                config.HIDDEN_CNN_LAYERS)
+else:
+    current_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, PLAYER_COUNT,
+                        config.HIDDEN_CNN_LAYERS)
+    best_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, PLAYER_COUNT,
+                                config.HIDDEN_CNN_LAYERS)
+    opponent_NN = Residual_CNN(config.REG_CONST, config.LEARNING_RATE, shape, PLAYER_COUNT,
+                                config.HIDDEN_CNN_LAYERS)
 
-best_player_version = []
+best_player_version = 0
 # If loading an existing neural netwrok, set the weights from that model
-if initialise.INITIAL_MODEL_VERSION != [None] * DECISION_TYPES:
-    for i, version in enumerate(initialise.INITIAL_MODEL_VERSION):
-        best_player_version.append(initialise.INITIAL_MODEL_VERSION[i])
-        print('LOADING MODEL VERSION ' + str(initialise.INITIAL_MODEL_VERSION[i]) + '...')
-        m_tmp = best_NN[i].read(env.name, initialise.INITIAL_RUN_NUMBER, version)
-        current_NN[i].model.set_weights(m_tmp.get_weights())
-        best_NN[i].model.set_weights(m_tmp.get_weights())
+if initialise.INITIAL_MODEL_VERSION != None:
+    best_player_version = initialise.INITIAL_MODEL_VERSION
+    print('LOADING MODEL VERSION ' + str(initialise.INITIAL_MODEL_VERSION) + '...')
+    m_tmp = best_NN.read(env.name, initialise.INITIAL_RUN_NUMBER, initialise.INITIAL_MODEL_VERSION)
+    current_NN.model.set_weights(m_tmp.get_weights())
+    best_NN.model.set_weights(m_tmp.get_weights())
 # otherwise just ensure the weights on the two players are the same
 else:
-    for i in range(DECISION_TYPES):
-        best_player_version.append(0)
-        best_NN[i].model.set_weights(current_NN[i].model.get_weights())
+    best_NN.model.set_weights(current_NN.model.get_weights())
 
 # copy the config file to the run folder
 copyfile('./config.py', run_folder + 'config.py')
 
-for i in range(DECISION_TYPES):
-    plot_model(current_NN[i].model, to_file=run_folder + 'models/decision_' + str(i) + '_model.png', show_shapes=True)
+plot_model(current_NN.model, to_file=run_folder + 'models/model.png', show_shapes=True)
 
 print('\n')
 
 ######## CREATE THE PLAYERS ########
 
-current_player = Agent('current_player', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, current_NN)
-best_player = Agent('best_player', env.state_size, env.action_size, config.MCTS_SIMS, config.CPUCT, best_NN)
+current_player = Agent('current_player', config.MCTS_SIMS, config.CPUCT, current_NN)
+best_player = Agent('best_player', config.MCTS_SIMS, config.CPUCT, best_NN)
+opponent_player = Agent('selected_opponent', config.MCTS_SIMS, config.CPUCT, opponent_NN)
+
+rollout_first = False
 
 if initialise.INITIAL_ITERATION != None:
     iteration = initialise.INITIAL_ITERATION
 else:
     iteration = 0
+    #rollout_first = True
+    #best_player = testing_agent(config.MCTS_SIMS, 'best_player')
 
-
-if play_vs_self:
-    reload(lg)
-    reload(config)
-    user_players = []
-    user_players.append(User('User1', env.state_size, env.action_size))
-    user_players.append(User('User2', env.state_size, env.action_size))
-    user_players.append(User('User3', env.state_size, env.action_size))
-    user_players.append(User('User4', env.state_size, env.action_size))
-
-    playMatches(user_players,1,lg.logger_main,500)
-
-if play_vs_agent:
-    players = []
-
-    # assumes that games have an even # of players
-    for i in range(PLAYER_COUNT, 2):
-        players.append(User('User' + str((i / 2) + 1), env.state_size, env.action_size))
-        players.append(best_player)
-
-    playMatches(players,1,lg.logger_main,0)
-    exit(0)
-
-if len(memories[0].ltmemory) == 0:
-    memories = fillMem([testing_agent(config.MCTS_SIMS, 'tester1', env.action_size), testing_agent(config.MCTS_SIMS, 'tester2', env.action_size)], memories)
+"""if len(memories[0].ltmemory) < MIN_MEMORY_SIZE:
+    fill_mem(memories)
+    pickle.dump(memories[0], open(run_folder + "memory/decision_" + str(0) + "_memory" + str(iteration).zfill(4) + ".p", "wb"))"""
 
 trained = False
-epsilon = init_epsilon = 0.75
+epsilon = init_epsilon = 0.70
 
 while 1:
 
     iteration += 1
+    
+    
     reload(lg)
     reload(config)
 
@@ -170,34 +165,48 @@ while 1:
     print('BEST PLAYER VERSION ' + str(best_player_version))
 
     ######## CREATE LIST OF PLAYERS #######
-    # for training it is just 4 copies of best_player
-    best_players = []
+    # for training it is just 2 copies of the best_player vs. 2 copies of another randomly selected model
+    filenames = os.listdir('run/models/')
+    filenames = [name for name in filenames if '.h5' == name[-3:]]
+    opponent = random.choice(filenames)
+    print("Version {} randomly selected to play against version {}".format(int(opponent[-7:-3]), best_player_version))
+
+    m_tmp = opponent_NN.read_specific('run/models/' + opponent)
+    opponent_NN.model.set_weights(m_tmp.get_weights())
+
+
+    self_play_players = []
     for i in range(PLAYER_COUNT):
-        best_players.append(best_player)
+      if i % 2 == 0:
+        self_play_players.append(best_player)
+      else:
+        self_play_players.append(opponent_player)
 
     ######## SELF PLAY ########
+    #epsilon = init_epsilon - iteration * (init_epsilon / 50.0)
+    epsilon = 0
+    
+    print('Current epsilon: {}'.format(epsilon))
     print('SELF PLAYING ' + str(config.EPISODES) + ' EPISODES...')
-    _, memories, _ = playMatches(best_players, config.EPISODES, lg.logger_main,
+    _, memories = playMatches(self_play_players, config.EPISODES, lg.logger_main,
                                   epsilon, memory=memories)
     print('\n')
-    epsilon -= init_epsilon / 200.0
     
-    full_memory = True
 
-    for d_t,memory in enumerate(memories):
-        memory.clear_stmemory()
+    memories.clear_stmemory()
 
-        if len(memory.ltmemory) == MEMORY_SIZE[d_t]:
-            #set_learning_phase(1) # tell keras backend that the model will be learning now
+    if len(memories.ltmemory) >= MIN_MEMORY_SIZE:
+        #set_learning_phase(1) # tell keras backend that the model will be learning now
 
-            trained = True
-            ######## RETRAINING ########
-            print('RETRAINING...')
-            current_player.replay(memory.ltmemory,d_t)
-            print('')
+        trained = True
+        ######## RETRAINING ########
+        print('RETRAINING...')
+        current_player.replay(memories.ltmemory)
+        current_player.evaluate(memories.ltmemory)
+        print('')
             
-            if iteration % 5 == 0:
-                pickle.dump(memory, open(run_folder + "memory/decision_" + str(d_t) + "_memory" + str(iteration).zfill(4) + ".p", "wb"))
+    if iteration != 0 and iteration % 4 == 0:
+                pickle.dump(memories, open(run_folder + "memory/memory" + str(iteration).zfill(4) + ".p", "wb"))
     
     if trained:
         ######## TOURNAMENT ########
@@ -209,27 +218,50 @@ while 1:
         # and 2 copies of the current player are across from each other
         
         tourney_players = []
-        for i in range(int(PLAYER_COUNT / TEAM_SIZE)):
-            tourney_players.append(best_players[i])
-            tourney_players.append(current_player)
-
-        scores, _, points = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
-                                                0.0)
+        if TEAM_SIZE > 1:
+            for i in range(int(PLAYER_COUNT / TEAM_SIZE)): # for each team
+                for k in range(TEAM_SIZE): # alternate adding best_players and current_players up to the TEAM_SIZE
+                    if k % 2 == 0:
+                        tourney_players.append(best_player)
+                    else:
+                        tourney_players.append(current_player)
+        else:
+            for i in range(PLAYER_COUNT):
+                if i % 2 == 0:
+                    tourney_players.append(best_player)
+                else:
+                    tourney_players.append(current_player)
+                    
+        scores, test_memories = playMatches(tourney_players, config.EVAL_EPISODES, lg.logger_tourney,
+                                                0.0, test_memories, evaluation=True)
+        test_memories.clear_stmemory()  
+          
         print('\nSCORES')
         print(scores)
         print('\n\n')
 
         # if the current player is significantly better than the best_player replace the best player
+        # the replacement is made by just copying the weights of current_player's nn to best_player's nn
         if scores['current_player'] > scores['best_player'] * config.SCORING_THRESHOLD:
-            for i in range(DECISION_TYPES):
-                best_player_version[i] = best_player_version[i] + 1
-                best_NN[i].model.set_weights(current_NN[i].model.get_weights())
-                best_NN[i].write(env.name, best_player_version[i])
+            if rollout_first:
+                best_player = Agent('best_player', env.action_size, config.MCTS_SIMS, config.CPUCT, best_NN)
+                rollout_first = False
+                
+            best_player_version = best_player_version + 1
+            best_NN.model.set_weights(current_NN.model.get_weights())
+            best_NN.write(env.name, best_player_version)
+            
+        if len(test_memories.ltmemory) == test_memories.MEMORY_SIZE and iteration % 4 == 0:
+            pickle.dump(memories, open(run_folder + "memory/test_memory" + str(iteration).zfill(4) + ".p", "wb"))
+
+            print("Evaluating performance of current_NN")
+            current_player.evaluate_accuracy(test_memories.ltmemory)
+            print('\n')
+          
 
     
     mem_size = 'MEMORY SIZE: '
-    for i, memory in enumerate(memories):
-        mem_size += str(i) + ':' + str(len(memory.ltmemory))
-        if i < DECISION_TYPES - 1:
-            mem_size += ', '
+    
+    mem_size += str(len(memories.ltmemory))
+        
     print(mem_size)

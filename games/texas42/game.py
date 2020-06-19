@@ -20,7 +20,7 @@ class Game:
         # 20 for bids 30-42, 84, 168, 336, 672, 1344, 2688, pass
         # 28 for each domino
         # 9 for choosing trump suit (suits 0-6, doubles, follow me)
-        self.actionSpace = [np.zeros((28), dtype=np.int), np.zeros((9),dtype=np.int)]
+        #self.actionSpace = [np.zeros((28), dtype=np.int), np.zeros((9),dtype=np.int)]
         self.grid_shape = (15, 28)  # I believe this was just used for printing the conect 4
         self.input_shape = (15, 28)  # input shape for the neural network is ____
         self.name = 'Texas_42'
@@ -185,30 +185,32 @@ class GameState():
     # creates a list of hidden information by adding the opponent's hand back into the queue
     # then generate a cloned gameState with the opponents hand generated from the shuffled
     # unknown list
-    def CloneAndRandomize(self):
-        unknown = []
-        for i in range(0, 4):
-            if i != self.playerTurn:
-                unknown.extend(self.hands[i])
+    def CloneAndRandomize(self, yield_count):
+        
+        for _ in range(yield_count):
+            unknown = []
+            for i in range(0, 4):
+                if i != self.playerTurn:
+                    unknown.extend(self.hands[i])
 
-        new_hands = [[], [], [], []]
+            new_hands = [[], [], [], []]
 
-        for dom in self.hands[self.playerTurn]:  # copy over the current players hand
-            new_hands[self.playerTurn].append(dom)
+            for dom in self.hands[self.playerTurn]:  # copy over the current players hand
+                new_hands[self.playerTurn].append(dom)
 
-        np.random.shuffle(unknown)
+            np.random.shuffle(unknown)
 
-        for i in range(0, 4):
-            if i != self.playerTurn:
-                for j in range(len(self.hands[i])):
-                    new_hands[i].append(unknown.pop())
+            for i in range(0, 4):
+                if i != self.playerTurn:
+                    for j in range(len(self.hands[i])):
+                        new_hands[i].append(unknown.pop())
 
-        for i,hand in enumerate(new_hands):
-            if i != self.playerTurn:
-                new_hands[i] = sorted(hand)
+            for i,hand in enumerate(new_hands):
+                if i != self.playerTurn:
+                    new_hands[i] = sorted(hand)
 
-        return GameState(self.playerTurn, new_hands, self.collections, self.high_bid, self.highest_bidder, self.passed, self.marks,
-                         self.tricks_won, self.trump_suit, self.fm_suit, self.decision_type, self.played_dominoes)
+            yield GameState(self.playerTurn, new_hands, self.collections, self.high_bid, self.highest_bidder, self.passed, self.marks,
+                            self.tricks_won, self.trump_suit, self.fm_suit, self.decision_type, self.played_dominoes)
 
     def _binary(self):  # converts the state to a 16x28 binary representation
                         # turn sequence is current player, their teammate, then their two opponents
