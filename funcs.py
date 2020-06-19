@@ -27,7 +27,7 @@ def playMatches(agents, EPISODES, logger, epsilon, memory = None, random_agent =
     games_to_block = EPISODES - games_to_win
 
     sys.stdout.flush()
-    for e in tqdm(list(range(EPISODES))):
+    for e in tqdm(list(range(EPISODES)), smoothing=0):
         last_game = e + 1
 
         logger.info('====================')
