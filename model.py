@@ -38,6 +38,9 @@ class Gen_Model():
 	def read(self, game, run_number, version):
 		return load_model( run_archive_folder + game + '/run' + str(run_number).zfill(4) + "/models/version" + "{0:0>4}".format(version) + '.h5')
 
+	def read_specific(self, file_path):
+		return load_model(file_path)
+
 	def printWeightAverages(self):
 		layers = self.model.layers
 		for i, l in enumerate(layers):

@@ -9,6 +9,7 @@ import random
 from ISMCTS import ISMCTS as mc
 from game import GameState
 from loss import softmax_cross_entropy_with_logits
+from tensorflow.keras.losses import SquaredHinge
 
 import config
 from config import TEAM_SIZE, PLAYER_COUNT
@@ -72,7 +73,7 @@ class Agent():
             actions = [c.move for c in child_nodes if c.visits == max_vists]
             action = random.choice(actions)
         else:
-            pi = np.zeros(28, dtype=np.integer)
+            pi = np.zeros(43, dtype=np.integer)
             for child in child_nodes:
                 pi[child.move] = child.visits
             
@@ -105,8 +106,11 @@ class Agent():
         for i, pred in enumerate(predictions):
             if np.argmax(pred) == np.argmax(targets[i]):
                 count += 1
+        print("Evaluating model on {} memories from unseen games.".format(len(minibatch)))
+        print("Accuracy: {}".format(count / len(minibatch)))
         
-        print("Accuracy: {}".format(count / len(minibatch)))      
+        h = SquaredHinge()
+        print("Squared Hinge Loss: {}".format(h(targets, predictions).numpy()))    
 
     def replay(self, ltmemory):
         lg.logger_mcts.info('******RETRAINING MODEL******')

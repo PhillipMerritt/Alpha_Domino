@@ -24,7 +24,7 @@ class Memory:
 
     def extension(self, new_max):
         temp_deque = deque(maxlen=new_max)
-        temp_deque.extend(self.ltmemory)
+        temp_deque.extend(list(self.ltmemory))
         self.ltmemory = temp_deque
         self.MEMORY_SIZE = new_max
     
