@@ -33,7 +33,7 @@ from settings import run_folder, run_archive_folder
 import initialise
 import pickle
 import config
-from config import PLAYER_COUNT, TEAM_SIZE, MEMORY_SIZE, ALL_VERSION_TOURNAMENT
+from config import PLAYER_COUNT, TEAM_SIZE, MEMORY_SIZE
 from fill_mem import fill_mem
 
 play_vs_self = False    # set this to true to take control of all 4 players
@@ -82,9 +82,7 @@ else:
     memories = pickle.load(open(
         run_archive_folder + env.name + '/run' + str(initialise.INITIAL_RUN_NUMBER).zfill(4) + "/memory/memory" + str(initialise.INITIAL_MEMORY_VERSION).zfill(4) + ".p", "rb"))
 
-    if memories.MEMORY_SIZE < MEMORY_SIZE:
-        memories.extension(MEMORY_SIZE)
-    elif memories.MEMORY_SIZE > MEMORY_SIZE:
+    if memories.MEMORY_SIZE != MEMORY_SIZE:
         memories.extension(MEMORY_SIZE)
 
 ######## LOAD MODEL IF NECESSARY ########

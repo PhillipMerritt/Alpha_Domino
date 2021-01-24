@@ -121,6 +121,7 @@ def ISMCTS(rootstate, itermax, agent = None, verbose = False):
         elif agent: # if an agent was passed to the function predict value instead of rolling out
             nn_values = agent.predict_value(state)
             
+                
             while not state.isEndGame: # while state is non-terminal
                 if state.allowedActions == []:
                     state, _, _ = state.takeAction(-1)
